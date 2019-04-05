@@ -4,9 +4,10 @@ sql_create_store_table = """ CREATE TABLE IF NOT EXISTS store (
 						); """
 
 sql_create_transaction_table = """ CREATE TABLE IF NOT EXISTS purchase (
-								id INTEGER PRIMARY KEY AUTOINCREMENT,
-								purchase_date VARCHAR(50) NOT NULL,
-								description TEXT,
-								store_id INTEGER,
-								FOREIGN KEY (store_id) REFERENCES store(id)
-								); """
+							id INTEGER PRIMARY KEY AUTOINCREMENT,
+							purchase_date TEXT NOT NULL,
+							total INTEGER NOT NULL,
+							description TEXT,
+							store_id INTEGER,
+							FOREIGN KEY (store_id) REFERENCES store(id)
+							); """

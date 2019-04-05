@@ -16,6 +16,3 @@ if conn is not None:
 	conn.close()
 else:
 	print('Error connecting to database!')
-
-
-
