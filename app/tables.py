@@ -8,6 +8,6 @@ sql_create_transaction_table = """ CREATE TABLE IF NOT EXISTS purchase (
 							purchase_date TEXT NOT NULL,
 							total INTEGER NOT NULL,
 							description TEXT,
-							store_id INTEGER,
+							store_id INTEGER NOT NULL,
 							FOREIGN KEY (store_id) REFERENCES store(id)
 							); """
