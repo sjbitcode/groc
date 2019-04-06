@@ -30,3 +30,18 @@ def create_table(conn, create_table_sql_string):
 		c.execute(create_table_sql_string)
 	except Exception as e:
 		print(e)
+
+
+def enable_foreign_keys(conn):
+	"""
+	Enable foreign keys on database for each connection.
+	"""
+	try:
+		c = conn.cursor()
+		c.execute('PRAGMA foreign_keys = ON;')
+	except Exception as e:
+		print(e)
+
+
+def insert_from_csv(conn, file_paths):
+	pass
