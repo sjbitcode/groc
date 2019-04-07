@@ -1,20 +1,5 @@
+import csv
 import sqlite3
-
-
-def create_connection(db_url):
-	"""
-	Create a database connection to the SQLite database
-    specified by db_url.
-
-    :param db_url: database path
-    :return: Connection object or None
-    """
-	try:
-		conn = sqlite3.connect(db_url)
-		return conn
-	except Exception as e:
-		print(e)
-	return None
 
 
 def create_table(conn, create_table_sql_string):
@@ -25,23 +10,47 @@ def create_table(conn, create_table_sql_string):
     :param create_table_sql_string: a CREATE TABLE statement
     :return:
     """
-	try:
-		c = conn.cursor()
-		c.execute(create_table_sql_string)
-	except Exception as e:
-		print(e)
+	with conn:
+		cursor = conn.cursor()
+		cursor.execute(create_table_sql_string)
 
 
-def enable_foreign_keys(conn):
+def dollar_to_cents(dollar):
 	"""
-	Enable foreign keys on database for each connection.
+	Convert a dollar amount (float) to cents (integer).
+
+	:param dollar: A string or float representing dollar amount
+	:return: An integer representing amount as cents.
 	"""
-	try:
-		c = conn.cursor()
-		c.execute('PRAGMA foreign_keys = ON;')
-	except Exception as e:
-		print(e)
+	return round(float(dollar) * 100)
 
 
 def insert_from_csv(conn, file_paths):
-	pass
+	files = file_paths.split(',')
+
+	for file in files:
+		with open(file, mode='r') as csv_file:
+			csv_reader = csv.reader(csv_file, delimiter=',')
+
+			# Ignore header row
+			next(csv_reader)
+
+			with conn:
+				cursor = conn.cursor()
+
+				for row in csv_reader:
+					print(row)
+
+					# Insert store or ignore if exists
+					store = row[1]
+					cursor.execute('INSERT OR IGNORE INTO store(name) VALUES (?)', (store,))
+
+					# Insert purchase
+					store_id = cursor.execute('SELECT id FROM store WHERE name = ?', (store,)).fetchone()[0]
+					print(store_id)
+
+					date = row[0]
+					amount = dollar_to_cents(row[2])
+					insert = (date, amount, 'grocery', store_id)
+					print('Going to insert this {}'.format(insert))
+					cursor.execute('INSERT INTO purchase(purchase_date, total, description, store_id) VALUES (?, ?, ?, ?)', insert)
