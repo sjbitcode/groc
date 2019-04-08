@@ -7,7 +7,14 @@ sql_create_transaction_table = """ CREATE TABLE IF NOT EXISTS purchase (
 							id INTEGER PRIMARY KEY AUTOINCREMENT,
 							purchase_date TEXT NOT NULL,
 							total INTEGER NOT NULL,
-							description TEXT,
+							description TEXT NOT NULL,
 							store_id INTEGER NOT NULL,
-							FOREIGN KEY (store_id) REFERENCES store(id)
+							FOREIGN KEY (store_id) REFERENCES store(id),
+							UNIQUE(purchase_date, total, description, store_id)
 							); """
+
+sql_delete_store_table = """ DELETE FROM store; """
+
+sql_delete_transaction_table = """ DELETE FROM purchase; """
+
+sql_list_tables = """ SELECT name FROM sqlite_master WHERE type='table'; """
