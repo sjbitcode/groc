@@ -5,19 +5,6 @@ import sqlite3
 from app.settings import BASE_DIR, CSV_DIR
 
 
-def execute_sql(conn, sqlite_statement_string):
-    """ 
-    Create a table from a sql create table statement.
-
-    :param conn: Connection object
-    :param sqlite_statement_string: a SQL statement
-    :return:
-    """
-    with conn:
-        cursor = conn.cursor()
-        cursor.execute(sqlite_statement_string)
-
-
 def dollar_to_cents(dollar):
     """
     Convert a dollar amount (float) to cents (integer).
@@ -26,6 +13,48 @@ def dollar_to_cents(dollar):
     :return: An integer representing amount as cents.
     """
     return round(float(dollar) * 100)
+
+
+def clean_row(row):
+    """
+    Clean row of data from csv by removing trailing spaces
+    and converting forward and backward apostrophe to single quote.
+
+    :param row: List of strings read in from csv
+    :return: List of cleaned strings
+    """
+    clean = lambda x: x.lstrip().rstrip().replace(u"\u2018", "'").replace(u"\u2019", "'")
+
+    return [clean(s) if isinstance(s, str) else s for s in row]
+
+
+def update_row(row):
+    """
+    Update the total and description values of csv row.
+    Convert total to integer.
+    Ensure that description value is nonempty.
+
+    :param row: Row from csv file
+    :return: Row with total and description validated
+    """
+    row[2] = dollar_to_cents(row[2])
+    row[3] = row[3] or 'grocery'
+    return row
+
+
+def validate_row(row):
+    """
+    Wrapper function for clean_row and validate_row.
+    Format should be [
+                    purchase_date, store_name,
+                    total, description]
+
+    :param row: Row from csv file
+    :return: Row with values cleaned and validated
+    """
+    row = clean_row(row)
+    row = update_row(row)
+    return row
 
 
 def get_all_csv(csv_dir=None, ignore_files=[]):
@@ -49,58 +78,3 @@ def get_all_csv(csv_dir=None, ignore_files=[]):
                 csv_files.append(full_path)
 
     return csv_files
-
-
-def insert_from_csv(conn, file_paths, db='sqlite'):
-    """
-    Insert contents from list of csv files into database.
-
-    :param conn: Connection object
-    :param file_paths: List of path strings to csv files
-    :param db: String either 'sqlite' or 'postgres'
-    :return:
-    """
-
-    for file in file_paths:
-        with open(file, mode='r') as csv_file:
-            csv_reader = csv.reader(csv_file, delimiter=',')
-
-            # Ignore header row
-            next(csv_reader)
-
-            with conn:
-                cursor = conn.cursor()
-
-                for row in csv_reader:
-                    print(row)
-
-                    try:
-                        # Insert store or ignore if exists
-                        store = row[1]
-
-                        if db == 'postgres':
-                            cursor.execute('INSERT INTO store(name) VALUES (%s) ON CONFLICT DO NOTHING;', (store,))
-                        else:
-                            cursor.execute('INSERT OR IGNORE INTO store(name) VALUES (?)', (store,))
-
-
-                        # Insert purchase
-                        if db == 'postgres':
-                            cursor.execute('SELECT id FROM store WHERE name = %s', (store,))
-                            store_id = cursor.fetchone()[0]
-                        else:
-                            store_id = cursor.execute('SELECT id FROM store WHERE name = ?', (store,)).fetchone()[0]
-                        print(store_id)
-
-                        date = row[0]
-                        amount = dollar_to_cents(row[2])
-                        description = row[3] or 'grocery'
-                        insert = (date, amount, description, store_id)
-                        print('Going to insert this {}'.format(insert))
-
-                        if db == 'postgres':
-                            cursor.execute('INSERT INTO purchase(purchase_date, total, description, store_id) VALUES (%s, %s, %s, %s)', insert)
-                        else:
-                            cursor.execute('INSERT INTO purchase(purchase_date, total, description, store_id) VALUES (?, ?, ?, ?)', insert)
-                    except Exception as e:
-                        print(f'Error inserting to database!', e)

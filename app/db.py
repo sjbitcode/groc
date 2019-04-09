@@ -1,9 +1,10 @@
+import csv
 import os
 import sqlite3
 
 from app.connection import SQLiteConnection
 from app.settings import DB_URL
-from app.utils import execute_sql
+from app.utils import validate_row
 
 
 # SQLite specific statements
@@ -55,6 +56,19 @@ sql_delete_purchase_table = """ DROP TABLE purchase; """
 
 
 # Useful db methods
+def execute_sql(conn, sql_statement_string):
+    """ 
+    Execute a sql statement via connection cursor.
+
+    :param conn: Connection object
+    :param sql_statement_string: a SQL statement
+    :return:
+    """
+    with conn:
+        cursor = conn.cursor()
+        cursor.execute(sql_statement_string)
+
+
 def setup_db(conn):
 	"""
 	Set up the sqlite database with store and puchase tables.
@@ -64,7 +78,7 @@ def setup_db(conn):
 	"""
 	with conn:
 		execute_sql(conn, sqlite_create_store_table)
-		execute_sql(conn, sqlite_create_transaction_table)
+		execute_sql(conn, sqlite_create_purchase_table)
 
 
 def list_tables(conn):
@@ -88,7 +102,7 @@ def clear_db(conn):
 	:return:
 	"""
 	with conn:
-		execute_sql(conn, sql_clear_transaction_table)
+		execute_sql(conn, sql_clear_purchase_table)
 		execute_sql(conn, sql_clear_store_table)
 
 
@@ -116,3 +130,91 @@ def delete_db():
 		os.remove(DB_URL)
 	except FileNotFoundError:
 		print(f'Database file not found at {DB_URL}')
+
+
+def insert_csv_row_sqlite(cursor, row):
+	"""
+	Insert store and purchase data from a
+	csv row into a SQLite db.
+
+	:param cursor: A SQLite cursor object
+	:param row: A csv row containing data about a purchase.
+	            Format should be [
+	            	purchase_date, store_name,
+	            	total, description
+	            ]
+	:return:
+	"""
+	purchase_date, store, total, description = row
+
+	# Insert store and get store_id
+	cursor.execute('INSERT OR IGNORE INTO store(name) VALUES (?)', (store,))
+	store_id = cursor.execute('SELECT id FROM store WHERE name = ?', (store,)).fetchone()[0]
+
+	# Insert purchase details
+	cursor.execute(""" INSERT INTO purchase(purchase_date, total, description, store_id)
+		VALUES (?, ?, ?, ?); """,
+		(purchase_date, total, description, store_id,))
+
+
+def insert_csv_row_postgres(cursor, row):
+	"""
+	Insert store and purchase data from a
+	csv row into a Postgres db.
+
+	:param cursor: A Postgres cursor object
+	:param row: A csv row containing data about a purchase.
+	            Format should be [
+	            	purchase_date, store_name,
+	            	total, description
+	            ]
+	:return:
+	"""
+	purchase_date, store, total, description = row
+
+	# Insert store and get store_id
+	cursor.execute('INSERT INTO store(name) VALUES (%s) ON CONFLICT DO NOTHING;', (store,))
+	cursor.execute('SELECT id FROM store WHERE name = %s', (store,))
+	store_id = cursor.fetchone()[0]
+
+	# Insert purchase details
+	cursor.execute(
+		""" INSERT INTO purchase(purchase_date, total, description, store_id) 
+		VALUES (%s, %s, %s, %s); """,
+		(purchase_date, total, description, store_id,))
+
+
+def insert_from_csv(conn, file_paths, db='sqlite'):
+    """
+    Insert contents from list of csv files into database.
+
+    :param conn: Connection object
+    :param file_paths: List of path strings to csv files
+    :param db: String either 'sqlite' or 'postgres'
+    :return:
+    """
+
+    for file in file_paths:
+        with open(file, mode='r') as csv_file:
+            csv_reader = csv.reader(csv_file, delimiter=',')
+
+            # Ignore header row
+            next(csv_reader)
+
+            with conn:
+                cursor = conn.cursor()
+
+                for row in csv_reader:
+                    row = validate_row(row)                   
+                    print(row)
+
+                    try:
+                        # Insert into sqlite or postgres
+                        if db == 'postgres':
+                        	insert_csv_row_postgres(cursor, row)
+                        else:
+                        	insert_csv_row_sqlite(cursor, row)
+
+                    except Exception as e:
+                        print(f'Error inserting to database!', e)
+
