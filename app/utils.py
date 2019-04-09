@@ -2,20 +2,20 @@ import csv
 import os
 import sqlite3
 
-from app.settings import BASE_DIR
+from app.settings import BASE_DIR, CSV_DIR
 
 
-def execute_sql(conn, sql_statement_string):
+def execute_sql(conn, sqlite_statement_string):
     """ 
     Create a table from a sql create table statement.
 
     :param conn: Connection object
-    :param sql_statement_string: a SQL statement
+    :param sqlite_statement_string: a SQL statement
     :return:
     """
     with conn:
         cursor = conn.cursor()
-        cursor.execute(sql_statement_string)
+        cursor.execute(sqlite_statement_string)
 
 
 def dollar_to_cents(dollar):
@@ -28,7 +28,7 @@ def dollar_to_cents(dollar):
     return round(float(dollar) * 100)
 
 
-def get_all_csv(csv_dir, ignore_files=[]):
+def get_all_csv(csv_dir=None, ignore_files=[]):
     """
     Gather all csv files and return as list, excludes any ignored files passed.
     Assumes that the csv files directory is within root project directory.
@@ -36,7 +36,8 @@ def get_all_csv(csv_dir, ignore_files=[]):
     :param csv_dir: csv directory name
     :param ignore_files: list of file names to ignore
     """
-    csv_dir = os.path.join(BASE_DIR, csv_dir)
+    if not csv_dir:
+        csv_dir = CSV_DIR
     csv_files = []
 
     # Walk all files in csv_dir
@@ -50,12 +51,13 @@ def get_all_csv(csv_dir, ignore_files=[]):
     return csv_files
 
 
-def insert_from_csv(conn, file_paths):
+def insert_from_csv(conn, file_paths, db='sqlite'):
     """
     Insert contents from list of csv files into database.
 
     :param conn: Connection object
     :param file_paths: List of path strings to csv files
+    :param db: String either 'sqlite' or 'postgres'
     :return:
     """
 
@@ -75,10 +77,19 @@ def insert_from_csv(conn, file_paths):
                     try:
                         # Insert store or ignore if exists
                         store = row[1]
-                        cursor.execute('INSERT OR IGNORE INTO store(name) VALUES (?)', (store,))
+
+                        if db == 'postgres':
+                            cursor.execute('INSERT INTO store(name) VALUES (%s) ON CONFLICT DO NOTHING;', (store,))
+                        else:
+                            cursor.execute('INSERT OR IGNORE INTO store(name) VALUES (?)', (store,))
+
 
                         # Insert purchase
-                        store_id = cursor.execute('SELECT id FROM store WHERE name = ?', (store,)).fetchone()[0]
+                        if db == 'postgres':
+                            cursor.execute('SELECT id FROM store WHERE name = %s', (store,))
+                            store_id = cursor.fetchone()[0]
+                        else:
+                            store_id = cursor.execute('SELECT id FROM store WHERE name = ?', (store,)).fetchone()[0]
                         print(store_id)
 
                         date = row[0]
@@ -86,6 +97,10 @@ def insert_from_csv(conn, file_paths):
                         description = row[3] or 'grocery'
                         insert = (date, amount, description, store_id)
                         print('Going to insert this {}'.format(insert))
-                        cursor.execute('INSERT INTO purchase(purchase_date, total, description, store_id) VALUES (?, ?, ?, ?)', insert)
+
+                        if db == 'postgres':
+                            cursor.execute('INSERT INTO purchase(purchase_date, total, description, store_id) VALUES (%s, %s, %s, %s)', insert)
+                        else:
+                            cursor.execute('INSERT INTO purchase(purchase_date, total, description, store_id) VALUES (?, ?, ?, ?)', insert)
                     except Exception as e:
                         print(f'Error inserting to database!', e)
