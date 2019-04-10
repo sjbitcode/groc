@@ -46,6 +46,10 @@ postgres_list_tables = """ SELECT table_name FROM information_schema.tables
 
 
 # SQL general statements
+sql_count_store_table = """ SELECT COUNT(*) FROM store; """
+
+sql_count_purchase_table = """ SELECT COUNT(*) FROM purchase; """
+
 sql_clear_store_table = """ DELETE FROM store; """
 
 sql_clear_purchase_table = """ DELETE FROM purchase; """
@@ -53,6 +57,21 @@ sql_clear_purchase_table = """ DELETE FROM purchase; """
 sql_delete_store_table = """ DROP TABLE store; """
 
 sql_delete_purchase_table = """ DROP TABLE purchase; """
+
+# Queries
+total_all_time_query = """ SELECT SUM(total) FROM purchase; """
+
+# sqlite
+total_per_month_query = """ SELECT SUM(p.total) AS total, strftime('%m', purchase_date) AS month
+						FROM purchase p GROUP BY month; """
+
+total_per_month_with_purchase_count = """ SELECT SUM(p.total) AS total, 
+									strftime('%m', purchase_date) AS month
+									FROM purchase p GROUP BY month; """
+
+total_per_month_given_months = """ SELECT SUM(p.total) AS total, 
+								COUNT(p.id) as purchase_count, strftime('%m', purchase_date) AS month
+								FROM purchase p WHERE month IN (?) GROUP BY month; """
 
 
 # Useful db methods
