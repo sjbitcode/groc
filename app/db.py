@@ -8,75 +8,59 @@ from app.utils import validate_row
 
 
 # SQLite specific statements
-sqlite_create_store_table = """ CREATE TABLE IF NOT EXISTS store (
-						id INTEGER PRIMARY KEY AUTOINCREMENT,
-						name VARCHAR(50) NOT NULL UNIQUE
-						); """
+sqlite_create_store_table = """CREATE TABLE IF NOT EXISTS store (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	name VARCHAR(50) NOT NULL UNIQUE );"""
 
-sqlite_create_purchase_table = """ CREATE TABLE IF NOT EXISTS purchase (
-							id INTEGER PRIMARY KEY AUTOINCREMENT,
-							purchase_date TEXT NOT NULL,
-							total INTEGER NOT NULL,
-							description TEXT NOT NULL,
-							store_id INTEGER NOT NULL,
-							FOREIGN KEY (store_id) REFERENCES store(id),
-							UNIQUE(purchase_date, total, description, store_id)
-							); """
+sqlite_create_purchase_table = """CREATE TABLE IF NOT EXISTS purchase (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	purchase_date TEXT NOT NULL,
+	total INTEGER NOT NULL,
+	description TEXT NOT NULL,
+	store_id INTEGER NOT NULL,
+	FOREIGN KEY (store_id) REFERENCES store(id),
+	UNIQUE(purchase_date, total, description, store_id)
+);"""
 
-sqlite_list_tables = """ SELECT name FROM sqlite_master WHERE type='table'; """
+sqlite_list_tables = """SELECT name FROM sqlite_master WHERE type='table';"""
 
 
 # Postgres specific statements
-postgres_create_store_table = """ CREATE TABLE store (
-						id SERIAL PRIMARY KEY,
-						name VARCHAR(50) NOT NULL UNIQUE
-						); """
+postgres_create_store_table = """CREATE TABLE store (
+	id SERIAL PRIMARY KEY,
+	name VARCHAR(50) NOT NULL UNIQUE );"""
 
-postgres_create_purchase_table = """ CREATE TABLE purchase (
-							id SERIAL PRIMARY KEY,
-							purchase_date DATE NOT NULL,
-							total INT NOT NULL,
-							description TEXT NOT NULL,
-							store_id INTEGER NOT NULL REFERENCES store(id),
-							UNIQUE(purchase_date, total, description, store_id)
-							); """
+postgres_create_purchase_table = """CREATE TABLE purchase (
+	id SERIAL PRIMARY KEY,
+	purchase_date DATE NOT NULL,
+	total INT NOT NULL,
+	description TEXT NOT NULL,
+	store_id INTEGER NOT NULL REFERENCES store(id),
+	UNIQUE(purchase_date, total, description, store_id)
+);"""
 
-postgres_list_tables = """ SELECT table_name FROM information_schema.tables
-   						WHERE table_schema = 'public'; """
+postgres_list_tables = """SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public';"""
 
 
 # SQL general statements
-sql_count_store_table = """ SELECT COUNT(*) FROM store; """
+sql_count_store_table = """SELECT COUNT(*) FROM store;"""
 
-sql_count_purchase_table = """ SELECT COUNT(*) FROM purchase; """
+sql_count_purchase_table = """SELECT COUNT(*) FROM purchase;"""
 
-sql_clear_store_table = """ DELETE FROM store; """
+sql_clear_store_table = """DELETE FROM store;"""
 
-sql_clear_purchase_table = """ DELETE FROM purchase; """
+sql_clear_purchase_table = """DELETE FROM purchase;"""
 
-sql_delete_store_table = """ DROP TABLE store; """
+sql_delete_store_table = """DROP TABLE store;"""
 
-sql_delete_purchase_table = """ DROP TABLE purchase; """
-
-# Queries
-total_all_time_query = """ SELECT SUM(total) FROM purchase; """
-
-# sqlite
-total_per_month_query = """ SELECT SUM(p.total) AS total, strftime('%m', purchase_date) AS month
-						FROM purchase p GROUP BY month; """
-
-total_per_month_with_purchase_count = """ SELECT SUM(p.total) AS total, 
-									strftime('%m', purchase_date) AS month
-									FROM purchase p GROUP BY month; """
-
-total_per_month_given_months = """ SELECT SUM(p.total) AS total, 
-								COUNT(p.id) as purchase_count, strftime('%m', purchase_date) AS month
-								FROM purchase p WHERE month IN (?) GROUP BY month; """
+sql_delete_purchase_table = """DROP TABLE purchase;"""
 
 
 # Useful db methods
 def execute_sql(conn, sql_statement_string):
-    """ 
+    """
     Execute a sql statement via connection cursor.
 
     :param conn: Connection object
@@ -151,6 +135,26 @@ def delete_db():
 		print(f'Database file not found at {DB_URL}')
 
 
+def multiple_parameter_substitution(sql_statement_string, length):
+	"""
+	Parameterize a sqlite IN statement with correct number
+	of '?' for arguments passed in and returns the sql 
+	statement string with correct number of string placeholders.
+
+	source: https://stackoverflow.com/questions/1309989/parameter-substitution-for-a-sqlite-in-clause
+	Example:
+	ids = ["1", "2", "3"]
+	cur.execute(
+		'SELECT * FROM person WHERE id IN (%s)' % ','.join('?'*len(ids)), 
+		ids
+	)
+
+	:param sql_statement_string: A SQLite query string
+	:param length: Integer to generate '?' placeholder.
+	"""
+	return sql_statement_string % ','.join('?'*length)
+
+
 def insert_csv_row_sqlite(cursor, row):
 	"""
 	Insert store and purchase data from a
@@ -171,8 +175,8 @@ def insert_csv_row_sqlite(cursor, row):
 	store_id = cursor.execute('SELECT id FROM store WHERE name = ?', (store,)).fetchone()[0]
 
 	# Insert purchase details
-	cursor.execute(""" INSERT INTO purchase(purchase_date, total, description, store_id)
-		VALUES (?, ?, ?, ?); """,
+	cursor.execute("""INSERT INTO purchase(purchase_date, total, description, store_id)
+		VALUES (?, ?, ?, ?);""",
 		(purchase_date, total, description, store_id,))
 
 
@@ -198,8 +202,8 @@ def insert_csv_row_postgres(cursor, row):
 
 	# Insert purchase details
 	cursor.execute(
-		""" INSERT INTO purchase(purchase_date, total, description, store_id) 
-		VALUES (%s, %s, %s, %s); """,
+		"""INSERT INTO purchase(purchase_date, total, description, store_id) 
+		VALUES (%s, %s, %s, %s);""",
 		(purchase_date, total, description, store_id,))
 
 
