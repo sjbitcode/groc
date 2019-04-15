@@ -2,6 +2,9 @@ import csv
 import os
 import sqlite3
 
+from unidecode import unidecode
+
+from app.exceptions import InvalidRowException, RowIntegrityError
 from app.settings import BASE_DIR, CSV_DIR
 
 
@@ -11,20 +14,23 @@ def dollar_to_cents(dollar):
 
     :param dollar: A string or float representing dollar amount
     :return: An integer representing amount as cents.
+    :raises ValueError or TypeError if value cannot be casted to float.
     """
-    return round(float(dollar) * 100)
+    try:
+        return round(float(dollar) * 100)
+    except (ValueError, TypeError):
+        raise
 
 
 def clean_row(row):
     """
-    Clean row of data from csv by removing trailing spaces
-    and converting forward and backward apostrophe to single quote.
+    Clean row of data from csv by converting unicode characters to ASCII
+    and strip whitespaces.
 
     :param row: List of strings read in from csv
     :return: List of cleaned strings
     """
-    clean = lambda x: x.lstrip().rstrip().replace(u"\u2018", "'").replace(u"\u2019", "'")
-
+    clean = lambda x: unidecode(x).lstrip().rstrip()
     return [clean(s) if isinstance(s, str) else s for s in row]
 
 
@@ -42,6 +48,19 @@ def update_row(row):
     return row
 
 
+def check_row_integrity(row):
+    """
+    Make sure a row has 4 fields.
+
+    :param row: Row read from csv files as list of values
+    :return: None
+    :raises RowIntegrityError if row does not have four values
+    """
+    if len(row) == 4:
+        return
+    raise RowIntegrityError('Row does not have four values')
+
+
 def validate_row(row):
     """
     Wrapper function for clean_row and validate_row.
@@ -51,10 +70,15 @@ def validate_row(row):
 
     :param row: Row from csv file
     :return: Row with values cleaned and validated
+    :raises InvalidRowException if row integrity failed or value error
     """
-    row = clean_row(row)
-    row = update_row(row)
-    return row
+    try:
+        check_row_integrity(row)
+        row = clean_row(row)
+        row = update_row(row)
+        return row
+    except (RowIntegrityError, ValueError, TypeError):
+        raise InvalidRowException
 
 
 def get_all_csv(csv_dir=None, ignore_files=[]):

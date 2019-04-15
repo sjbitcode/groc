@@ -3,6 +3,7 @@ import os
 import sqlite3
 
 from app.connection import SQLiteConnection
+from app.exceptions import DatabaseInsertException, InvalidRowException
 from app.settings import DB_URL
 from app.utils import validate_row
 
@@ -228,16 +229,19 @@ def insert_from_csv(conn, file_paths, db='sqlite'):
                 cursor = conn.cursor()
 
                 for row in csv_reader:
-                    row = validate_row(row)                   
-                    print(row)
+                	try:
+	                    row = validate_row(row)
+	                    # print(row)
 
-                    try:
                         # Insert into sqlite or postgres
                         if db == 'postgres':
                         	insert_csv_row_postgres(cursor, row)
                         else:
                         	insert_csv_row_sqlite(cursor, row)
 
-                    except Exception as e:
-                        print(f'Error inserting to database!', e)
+                    except InvalidRowException as exc:
+                    	print('Invalid row occured', exc)
+
+                    except DatabaseInsertException as exc:
+                        print('Error inserting to database!', exc)
 

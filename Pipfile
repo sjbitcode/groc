@@ -8,6 +8,8 @@ verify_ssl = true
 [packages]
 psycopg2-binary = "*"
 click = "*"
+pytest = "*"
+unidecode = "*"
 
 [requires]
 python_version = "3.7"
