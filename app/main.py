@@ -6,10 +6,14 @@ import click
 
 from app.connection import SQLiteConnection, PostgresConnection
 from app.settings import CSV_DIR, DB_URL
+from app.groc import Groc
+from app import exceptions
 
+# Create groc instance.
+g = Groc()
 
 # Connect to sqlite database.
-connection = SQLiteConnection().get_connection()
+# connection = SQLiteConnection().get_connection()
 
 # Connect to postgres database.
 # pgconnection = PostgresConnection(params = {
@@ -25,23 +29,41 @@ def abort_if_false(ctx, param, value):
 
 # Click CLI
 @click.group()
-def groc_entrypoint():
+@click.pass_context
+def groc_entrypoint(ctx):
     """
     A simple bill tracking tool to help you review and analyze purchases.
     """
+    ctx.obj = {"example": "This could be the configuration"}
 
 
 @groc_entrypoint.command('init', short_help='Delete db and create new one')
-@click.option('--force', is_flag=True, callback=abort_if_false, expose_value=False)
+# @click.option('--force', is_flag=True, callback=abort_if_false, expose_value=False)
 @click.option('--verbose', is_flag=True)
 def init(verbose):
     if verbose:
         click.echo('Verbose mode')
-    click.echo('Dropped db and created a new db')
+    try:
+        g.init_groc()
+    except exceptions.GrocException as exc:
+        print(exc)
+
+
+@groc_entrypoint.command('reset', short_help='Reset database')
+@click.option('--verbose', is_flag=True)
+def reset(verbose):
+    if verbose:
+        click.echo('Verbose mode. This will delete all data')
+    click.echo('All database data deleted')
 
 
 @groc_entrypoint.command('list', short_help='List purchases')
-@click.option('--limit', '-l', default=50, type=int, show_default=True, help='Number of last purchases')
+@click.option('--limit', '-l',
+    type=int,
+    default=50,
+    show_default=True,
+    help='Number of last purchases'
+)
 @click.option('--verbose', is_flag=True)
 def list(limit, verbose):
     if verbose:
@@ -54,10 +76,15 @@ def list(limit, verbose):
 
 @groc_entrypoint.command('delete', short_help='Delete purchases')
 @click.option('--dry-run', is_flag=True)
-def delete(dry_run):
+@click.option('--id', '-i',
+    type=int,
+    multiple=True,
+    help='Id of purchase'
+)
+def delete(dry_run, id):
     if dry_run:
         click.echo('Dry run')
-    click.echo('Delete purchases')
+    click.echo('Deleting purchase {}'.format(id))
 
 
 class MutuallyExclusiveOption(click.Option):
@@ -172,4 +199,10 @@ def breakdown(month):
 
 if __name__ == '__main__':
     groc_entrypoint()
+
+    # def safe_entry_point():
+    #   try:
+    #       groc_entrypoint()
+    #   except Exception as e:
+    #       click.echo(e)
 

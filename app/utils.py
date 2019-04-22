@@ -16,11 +16,15 @@ def dollar_to_cents(dollar):
     :return: An integer representing amount as cents.
     :raises ValueError or TypeError if value cannot be casted to float.
     """
-    try:
-        return round(float(dollar) * 100)
-    except (ValueError, TypeError):
-        raise
+    # try:
+    #     return round(float(dollar) * 100)
+    # except (ValueError, TypeError):
+    #     raise
+    return round(float(dollar) * 100)
 
+
+def clean_unicode_whitespace(val):
+    return unidecode(val).strip()
 
 def clean_row(row):
     """
@@ -30,11 +34,17 @@ def clean_row(row):
     :param row: List of strings read in from csv
     :return: List of cleaned strings
     """
-    clean = lambda x: unidecode(x).lstrip().rstrip()
-    return [clean(s) if isinstance(s, str) else s for s in row]
+    # clean = lambda x: unidecode(x).lstrip().rstrip()
+    # clean = lambda x: unidecode(x).strip()
+    # return [clean(s) if isinstance(s, str) else s for s in row]
+    return {
+        key: clean_unicode_whitespace(row[key])
+        if isinstance(row[key], str) else row[key] 
+        for key in row.keys()
+    }
 
 
-def update_row(row):
+def clean_total(total):
     """
     Update the total and description values of csv row.
     Convert total to integer.
@@ -43,22 +53,27 @@ def update_row(row):
     :param row: Row from csv file
     :return: Row with total and description validated
     """
-    row[2] = dollar_to_cents(row[2])
-    row[3] = row[3] or 'grocery'
-    return row
+    return dollar_to_cents(total)
+    # row['description'] = row['description'] or 'grocery'
+    # row[2] = dollar_to_cents(row[2])
+    # row[3] = row[3] or 'grocery'
+    # return row
 
 
 def check_row_integrity(row):
     """
-    Make sure a row has 4 fields.
+    Make sure a row has correct fieldnames.
 
-    :param row: Row read from csv files as list of values
+    :param row: Row read from csv files as ordered dict
     :return: None
-    :raises RowIntegrityError if row does not have four values
+    :raises RowIntegrityError if row does not have correct fieldnames
     """
-    if len(row) == 4:
+
+    # Check ordered dict keys
+    fieldnames = {'date', 'store', 'total', 'description'}
+    if set(row.keys()) == fieldnames:
         return
-    raise RowIntegrityError('Row does not have four values')
+    raise RowIntegrityError('Row does not have correct fieldnames')
 
 
 def validate_row(row):
@@ -73,12 +88,34 @@ def validate_row(row):
     :raises InvalidRowException if row integrity failed or value error
     """
     try:
+        # import pdb; pdb.set_trace()
         check_row_integrity(row)
         row = clean_row(row)
-        row = update_row(row)
+        row['total'] = clean_total(row['total'])
         return row
-    except (RowIntegrityError, ValueError, TypeError):
-        raise InvalidRowException
+    except (RowIntegrityError, ValueError, TypeError) as exc:
+        raise InvalidRowException(str(exc))
+
+
+def compile_csv_files(csv_dir, ignore_files=[]):
+    """
+    Gather all csv files and return as list, excludes any ignored files passed.
+    Assumes that the csv files directory is within root project directory.
+
+    :param csv_dir: csv directory name
+    :param ignore_files: list of file names to ignore
+    """
+    csv_files = []
+
+    # Walk all files in csv_dir
+    for root, dirs, files in os.walk(csv_dir):
+        for name in files:
+            if name.endswith('.csv') and name not in ignore_files:
+                # Get full path of file
+                full_path = os.path.join(root, name)
+                csv_files.append(full_path)
+
+    return csv_files
 
 
 def get_all_csv(csv_dir=None, ignore_files=[]):

@@ -13,7 +13,17 @@ class InvalidRowException(GrocException):
 	pass
 
 
-class DatabaseInsertException(GrocException):
+class DatabaseError(GrocException):
+    """ An error related to database operations. """
+    pass
+
+
+# class DatabaseInitError(DatabaseError):
+#     """ An error occured while creating database """
+#     pass
+
+
+class DatabaseInsertException(DatabaseError):
 	""" An error occured while writing to database. """
 	pass
 
