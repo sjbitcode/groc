@@ -9,9 +9,6 @@ from app.settings import CSV_DIR, DB_URL
 from app.groc import Groc
 from app import exceptions
 
-# Create groc instance.
-g = Groc()
-
 # Connect to sqlite database.
 # connection = SQLiteConnection().get_connection()
 
@@ -34,27 +31,31 @@ def groc_entrypoint(ctx):
     """
     A simple bill tracking tool to help you review and analyze purchases.
     """
-    ctx.obj = {"example": "This could be the configuration"}
+    ctx.obj = {}
 
 
-@groc_entrypoint.command('init', short_help='Delete db and create new one')
-# @click.option('--force', is_flag=True, callback=abort_if_false, expose_value=False)
+@groc_entrypoint.command('init', short_help='Create database in groc directory')
 @click.option('--verbose', is_flag=True)
 def init(verbose):
+    g = Groc()
     if verbose:
-        click.echo('Verbose mode')
-    try:
-        g.init_groc()
-    except exceptions.GrocException as exc:
-        print(exc)
+        click.echo('Groc directory exists') if g.groc_dir_exists() else click.echo('Creating groc directory')
+        click.echo('Attempting create database...')
+    g.init_groc()
 
 
 @groc_entrypoint.command('reset', short_help='Reset database')
 @click.option('--verbose', is_flag=True)
-def reset(verbose):
+@click.option('--dry-run', is_flag=True)
+def reset(verbose, dry_run):
+    g = Groc()
     if verbose:
-        click.echo('Verbose mode. This will delete all data')
-    click.echo('All database data deleted')
+        click.echo('Attempting to delete all data from database')
+    # g.clear_db()
+    if dry_run:
+        click.echo('You will be deleting some stuff!')
+    else:
+        g.clear_db()
 
 
 @groc_entrypoint.command('list', short_help='List purchases')
@@ -79,7 +80,8 @@ def list(limit, verbose):
 @click.option('--id', '-i',
     type=int,
     multiple=True,
-    help='Id of purchase'
+    help='Id of purchase',
+    required=True
 )
 def delete(dry_run, id):
     if dry_run:
@@ -176,12 +178,16 @@ def add(date, total, store, description, source):
     click.echo('Add a purchase manually or by file')
     if source:
         click.echo('Got a source')
-    else:
+    elif date:
         click.echo(date.strftime('%Y-%m-%d'))
         click.echo(total)
         click.echo(store)
         click.echo(description)
-
+    else:
+        raise click.UsageError('''
+        Missing option "--source" OR
+        options "--date", "store", "--total", "description" required together.
+        ''')
 
 @groc_entrypoint.command('breakdown', short_help='Show helpful stats for monthly purchases')
 @click.option('--month', '-m',
@@ -196,13 +202,17 @@ def breakdown(month):
     for m in month:
         click.echo(m.strftime('%m'))
 
+def safe_entry_point():
+    try:
+        click.secho('trying your command', fg='green')
+        groc_entrypoint()
+    except Exception as e:
+        click.secho(str(e), fg='red')
 
 if __name__ == '__main__':
-    groc_entrypoint()
+    # groc_entrypoint()
 
-    # def safe_entry_point():
-    #   try:
-    #       groc_entrypoint()
-    #   except Exception as e:
-    #       click.echo(e)
+    safe_entry_point()
+
+
 

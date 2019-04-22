@@ -29,6 +29,12 @@ class Groc:
     def _create_and_setup_db(self):
         """ Create database and tables. """
         db.setup_db(self._get_connection())
+    
+    def groc_dir_exists(self):
+        return os.path.exists(self.groc_dir)
+    
+    def groc_db_exists(self):
+        return os.path.exists(self.db_url)
 
     def init_groc(self):
         """
