@@ -4,17 +4,17 @@ import sqlite3
 from app import db, exceptions, utils
 
 
-class SQLiteConnection:
-    def __init__(self, db_url):
-        try:
-            conn = sqlite3.connect(db_url)
-            self.conn = conn
-        except (sqlite3.OperationalError, sqlite3.DatabaseError):
-            raise exceptions.DatabaseError('Error connecting to database')
+# class SQLiteConnection:
+#     def __init__(self, db_url):
+#         try:
+#             conn = sqlite3.connect(db_url)
+#             self.conn = conn
+#         except (sqlite3.OperationalError, sqlite3.DatabaseError):
+#             raise exceptions.DatabaseError('Error connecting to database')
 
-    def get_connection(self):
-        self.conn.execute('PRAGMA foreign_keys = ON;')
-        return self.conn
+#     def get_connection(self):
+#         self.conn.execute('PRAGMA foreign_keys = ON;')
+#         return self.conn
 
 
 class Groc:
@@ -27,7 +27,7 @@ class Groc:
     def _get_connection(db_url):
         try:
             connection = sqlite3.connect(db_url)
-            connection = connection.execute('PRAGMA foreign_keys = ON;')
+            connection.execute('PRAGMA foreign_keys = ON;')
             return connection
         except (sqlite3.OperationalError, sqlite3.DatabaseError):
             raise exceptions.DatabaseError('Error connecting to database')
