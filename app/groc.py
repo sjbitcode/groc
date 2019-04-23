@@ -60,6 +60,9 @@ class Groc:
         """ Delete all data from tables. """
         print('Resetting the db!')
         db.clear_db(self._get_connection())
+    
+    def select_by_id(self, ids):
+        return db.select_by_id(self._get_connection(), ids)
 
     def delete_purchase(self, ids):
         """

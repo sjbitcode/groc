@@ -19,10 +19,55 @@ from app import exceptions
 #   'user': os.environ.get('POSTGRES_USER', 'postgres'),
 #   'password': os.environ.get('POSTGRES_PASSWORD', 'postgres')}).get_connection()
 
+
+class MutuallyExclusiveOption(click.Option):
+    def __init__(self, *args, **kwargs):
+        self.mutually_exclusive = kwargs.pop('mutually_exclusive', [])
+        self.required_with = kwargs.pop('required_with', [])
+
+        if self.mutually_exclusive:
+            help_text = kwargs.get('help', '')
+            mutex_str = ', '.join(self.mutually_exclusive)
+            kwargs['help'] = help_text + (
+                '\n-- NOTE: This argument is mutually exclusive with'
+                ' arguments: [' + mutex_str + ']'
+            )
+
+        if self.required_with:
+            help_text = kwargs.get('help', '')
+            req_opts_str = ', '.join(self.required_with)
+            kwargs['help'] = help_text + (
+                '\n-- NOTE: This argument is required with'
+                ' arguments: [' + req_opts_str + ']'
+            )
+
+        super().__init__(*args, **kwargs)
+
+    def handle_parse_result(self, ctx, opts, args):
+        if set(self.mutually_exclusive).intersection(opts) and self.name in opts:
+            raise click.UsageError(
+                "Illegal usage: {} is mutually exclusive with "
+                "arguments: [{}]".format(
+                    self.name,
+                    ', '.join(self.mutually_exclusive)
+                )
+            )
+
+        if self.name in opts.keys():
+            if set(self.required_with + [self.name]) != set(opts):
+                raise click.UsageError(
+                    "Illegal usage: {} requires arguments: [{}]".format(
+                        self.name,
+                        ', '.join(self.required_with)
+                    )
+                )
+
+        return super().handle_parse_result(ctx, opts, args)
+
+
 def abort_if_false(ctx, param, value):
     if not value:
         ctx.abort()
-
 
 # Click CLI
 @click.group()
@@ -39,7 +84,10 @@ def groc_entrypoint(ctx):
 def init(verbose):
     g = Groc()
     if verbose:
-        click.echo('Groc directory exists') if g.groc_dir_exists() else click.echo('Creating groc directory')
+        if g.groc_dir_exists():
+            click.echo('Groc directory exists')
+        else:
+            click.echo('Creating groc directory')
         click.echo('Attempting create database...')
     g.init_groc()
 
@@ -51,7 +99,6 @@ def reset(verbose, dry_run):
     g = Groc()
     if verbose:
         click.echo('Attempting to delete all data from database')
-    # g.clear_db()
     if dry_run:
         click.echo('You will be deleting some stuff!')
     else:
@@ -83,57 +130,21 @@ def list(limit, verbose):
     help='Id of purchase',
     required=True
 )
-def delete(dry_run, id):
-    if dry_run:
-        click.echo('Dry run')
-    click.echo('Deleting purchase {}'.format(id))
+@click.option('--verbose', is_flag=True)
+def delete(dry_run, id, verbose):
+    g = Groc()
+    purchases = g.select_by_id(id)
+    if purchases:
+        if verbose:
+            click.echo('Heres some details about the purchases that you\'re about to delete')
+            click.echo('Deleting purchase {}'.format(id))
+            click.echo(type(id))
+            click.echo(purchases)
 
-
-class MutuallyExclusiveOption(click.Option):
-    def __init__(self, *args, **kwargs):
-        self.mutually_exclusive = kwargs.pop('mutually_exclusive', [])
-        self.required_with = kwargs.pop('required_with', [])
-
-
-        if self.mutually_exclusive:
-            help_text = kwargs.get('help', '')
-            mutex_str = ', '.join(self.mutually_exclusive)
-            kwargs['help'] = help_text + (
-                '\n-- NOTE: This argument is mutually exclusive with'
-                ' arguments: [' + mutex_str +']'
-            )
-
-        if self.required_with:
-            help_text = kwargs.get('help', '')
-            req_opts_str = ', '.join(self.required_with)
-            kwargs['help'] = help_text + (
-                '\n-- NOTE: This argument is required with'
-                ' arguments: [' + req_opts_str + ']'
-            )
-
-        super().__init__(*args, **kwargs)
-
-
-    def handle_parse_result(self, ctx, opts, args):
-        if set(self.mutually_exclusive).intersection(opts) and self.name in opts:
-            raise click.UsageError(
-                "Illegal usage: {} is mutually exclusive with "
-                "arguments: [{}]".format(
-                    self.name,
-                    ', '.join(self.mutually_exclusive)
-                )
-            )
-        
-        if self.name in opts.keys():
-            if set(self.required_with + [self.name]) != set(opts):
-                raise click.UsageError(
-                    "Illegal usage: {} requires arguments: [{}]".format(
-                        self.name,
-                        ', '.join(self.required_with)
-                    )
-                )
-
-        return super().handle_parse_result(ctx, opts, args)
+        if not dry_run:
+            g.delete_purchase(id)
+    else:
+        click.echo('No purchases with ids {} to be deleted'.format(id))
 
 
 @groc_entrypoint.command('add', short_help='Add purchases')
@@ -175,14 +186,17 @@ def add(date, total, store, description, source):
     """
     Add a purchase via command line, file, or directory
     """
+    g = Groc()
     click.echo('Add a purchase manually or by file')
     if source:
         click.echo('Got a source')
+        g.add_purchase_path(source)
     elif date:
         click.echo(date.strftime('%Y-%m-%d'))
         click.echo(total)
         click.echo(store)
         click.echo(description)
+        g.add_purchase_manual({'date':date, 'total':total, 'store':store, 'description':description})
     else:
         raise click.UsageError('''
         Missing option "--source" OR

@@ -27,6 +27,8 @@ sqlite_list_tables = """SELECT name FROM sqlite_master WHERE type='table';"""
 
 sqlite_delete_purchase_by_id = """DELETE FROM purchase WHERE id IN (%s);"""
 
+sqlite_select_purchase_by_id = """SELECT * FROM purchase WHERE id IN (%s);"""
+
 sqlite_list_purchase_limit = """SELECT * FROM purchase LIMIT ?;"""
 
 
@@ -106,6 +108,14 @@ def list_tables(conn):
         cursor = conn.cursor()
         tables = cursor.execute(sqlite_list_tables).fetchall()
         return ', '.join(t[0] for t in tables)
+
+def select_by_id(conn, ids):
+    with conn:
+        sql_select = multiple_parameter_substitution(
+            sqlite_select_purchase_by_id,
+            len(ids)
+        )
+        return execute_sql(conn, sql_select, values=ids)
 
 
 def delete_from_db(conn, ids):
