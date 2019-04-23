@@ -142,6 +142,7 @@ def delete(dry_run, id, verbose):
             click.echo(purchases)
 
         if not dry_run:
+            click.echo('Deleting...')
             g.delete_purchase(id)
     else:
         click.echo('No purchases with ids {} to be deleted'.format(id))
