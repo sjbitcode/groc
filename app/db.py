@@ -2,6 +2,8 @@ import csv
 import os
 import sqlite3
 
+from prettytable import from_db_cursor
+
 from app.connection import SQLiteConnection
 from app.exceptions import DatabaseError, DatabaseInsertException, InvalidRowException
 from app.settings import DB_URL
@@ -30,6 +32,14 @@ sqlite_delete_purchase_by_id = """DELETE FROM purchase WHERE id IN (%s);"""
 sqlite_select_purchase_by_id = """SELECT * FROM purchase WHERE id IN (%s);"""
 
 sqlite_list_purchase_limit = """SELECT * FROM purchase LIMIT ?;"""
+
+sqlite_select_purchase_count_per_month = """SELECT
+    COUNT(p.id) AS purchase_count,
+    strftime ('%m',p.purchase_date) AS month
+FROM purchase p
+INNER JOIN store s ON p.store_id = s.id
+GROUP BY month
+ORDER BY month DESC;"""
 
 
 # Postgres specific statements
@@ -118,6 +128,11 @@ def select_by_id(conn, ids):
         return execute_sql(conn, sql_select, values=ids)
 
 
+def select_purchase_count_per_month(conn):
+    with conn:
+        return execute_sql(conn, sqlite_select_purchase_count_per_month)
+
+
 def delete_from_db(conn, ids):
     """
     Deletes rows from the purchase table given
@@ -144,7 +159,6 @@ def get_purchases_limit(conn, limit):
     """
     with conn:
         return execute_sql(conn, sqlite_list_purchase_limit, values=[limit])
-
 
 
 def clear_db(conn):

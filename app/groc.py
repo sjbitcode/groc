@@ -28,6 +28,7 @@ class Groc:
         try:
             connection = sqlite3.connect(db_url)
             connection.execute('PRAGMA foreign_keys = ON;')
+            connection.row_factory = sqlite3.Row
             return connection
         except (sqlite3.OperationalError, sqlite3.DatabaseError):
             raise exceptions.DatabaseError('Error connecting to database')
@@ -69,6 +70,9 @@ class Groc:
     
     def select_by_id(self, ids):
         return db.select_by_id(self._get_connection(self.db_url), ids)
+    
+    def select_purchase_count_per_month(self):
+        return db.select_purchase_count_per_month(self._get_connection(self.db_url))
 
     def delete_purchase(self, ids):
         """
