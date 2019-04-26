@@ -3,6 +3,7 @@ import sqlite3
 import os
 
 import click
+from prettytable import from_db_cursor
 
 from app.connection import SQLiteConnection, PostgresConnection
 from app.settings import CSV_DIR, DB_URL
@@ -54,7 +55,11 @@ class MutuallyExclusiveOption(click.Option):
             )
 
         if self.name in opts.keys():
-            if set(self.required_with + [self.name]) != set(opts):
+            # import pdb; pdb.set_trace()
+            # if set(self.required_with + [self.name]) != set(opts):
+
+            # allows description option to be optional
+            if not set(self.required_with + [self.name]).issubset(set(opts)):
                 raise click.UsageError(
                     "Illegal usage: {} requires arguments: [{}]".format(
                         self.name,
@@ -122,7 +127,8 @@ def list(limit, verbose):
         click.echo('More detailed data about purchases')
     else:
         click.echo('Less detailed data about purchases')
-    click.echo(purchases)
+    click.echo(from_db_cursor(purchases))
+
     # if limit:
     #     click.echo(limit)
     #     click.echo(type(limit))
@@ -160,21 +166,24 @@ def delete(dry_run, id, verbose):
     help='Dollar amount of purchase',
     cls=MutuallyExclusiveOption,
     mutually_exclusive=['source'],
-    required_with=['date', 'store', 'description']
+    # required_with=['date', 'store', 'description']
+    required_with=['date', 'store']
 )
 @click.option('--date',
     type=click.DateTime(formats=['%Y-%m-%d']),
     help='The date of purchase',
     cls=MutuallyExclusiveOption,
     mutually_exclusive=['source'],
-    required_with=['total', 'store', 'description']
+    # required_with=['total', 'store', 'description']
+    required_with=['total', 'store']
 )
 @click.option('--store',
     type=str,
     help='Store name where purchase was made',
     cls=MutuallyExclusiveOption,
     mutually_exclusive=['source'],
-    required_with=['date', 'total', 'description']
+    # required_with=['date', 'total', 'description']
+    required_with=['date', 'total']
 )
 @click.option('--description',
     type=str,
@@ -199,11 +208,18 @@ def add(date, total, store, description, source):
         click.echo('Got a source')
         g.add_purchase_path(source)
     elif date:
-        click.echo(date.strftime('%Y-%m-%d'))
+        date_str = date.strftime('%Y-%m-%d')
+        click.echo(type(date_str))
+        click.echo(type(date))
         click.echo(total)
         click.echo(store)
-        click.echo(description)
-        g.add_purchase_manual({'date':date, 'total':total, 'store':store, 'description':description})
+        click.echo(type(description))
+        # g.add_purchase_manual({'date':date, 'total':total, 'store':store, 'description':description})
+        g.add_purchase_manual({
+            'date': date.strftime('%Y-%m-%d'),
+            'total': total,
+            'store': store,
+            'description': description})
     else:
         raise click.UsageError('''
         Missing option "--source" OR
@@ -227,6 +243,7 @@ def safe_entry_point():
     try:
         click.secho('trying your command', fg='green')
         groc_entrypoint()
+        print('I EXECUTED THE THINGSSSSSSS!!!')
     except Exception as e:
         click.secho(str(e), fg='red')
 

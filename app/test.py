@@ -1,3 +1,6 @@
+import datetime
+import sqlite3
+
 from prettytable import from_db_cursor
 
 from app.connection import SQLiteConnection
@@ -12,8 +15,79 @@ from app.groc import Groc
 # insert_from_csv_dict(conn, csvs)
 
 g = Groc()
-conn = g._get_connection(g.db_url)
-cur = conn.cursor()
-cur.execute('SELECT * FROM purchase;')
+# conn = g._get_connection(g.db_url)
+# cur = conn.cursor()
+# cur.execute('SELECT * FROM purchase;')
 
-x = from_db_cursor(cur)
+# x = from_db_cursor(cur)
+
+def datetime_worded_abbreviated(bytes_string):
+    s = str(bytes_string, 'utf-8')
+    d = datetime.datetime.strptime(s, '%Y-%m-%d')
+    return datetime.date.strftime(d, '%b %d, %Y')
+
+def datetime_worded_full(bytes_string):
+    s = str(bytes_string, 'utf-8')
+    d = datetime.datetime.strptime(s, '%Y-%m-%d')
+    return datetime.date.strftime(d, '%B %d, %Y')
+
+def datetime_month_full(bytes_string):
+    s = str(bytes_string, 'utf-8')
+    d = datetime.datetime.strptime(s, '%Y-%m-%d')
+    return datetime.date.strftime(d, '%B')
+
+def description_none(bytes_string):
+    print(f'THIS IS BYTES ---> {bytes_string}')
+    s = str(bytes_string, 'utf-8')
+    print(f'THIS IS S ---> {s}')
+    if s:
+        return s
+    return '[none]'
+
+def total_to_float(bytes_string):
+    s = int(str(bytes_string, 'utf-8'))
+    print(bytes_string)
+    # print(type(s))
+    # import sys
+    # t = int.from_bytes(bytes_string, byteorder=sys.byteorder)
+    return f'${s:,.2f}'
+
+
+# sqlite3.register_converter("purchase_date", datetime_worded_full)
+# sqlite3.register_converter("purchase_date_abbreviated",
+#                            datetime_worded_abbreviated)
+# sqlite3.register_converter("purchase_month", datetime_month_full)
+
+# sqlite3.register_converter("default_description", description_none)
+
+# sqlite3.register_converter("total_money", total_to_float)
+
+# con = sqlite3.connect(g.db_url, detect_types=sqlite3.PARSE_COLNAMES)
+# cur = con.cursor()
+# cur.execute(
+#     "create table IF NOT EXISTS test(d date, total integer, description text)")
+# cur.execute("""CREATE TRIGGER desc_unique BEFORE INSERT ON test
+# WHEN NEW.description
+# IS NULL
+# BEGIN
+#     SELECT
+#         CASE 
+#             WHEN ((SELECT 1 FROM test WHERE d=NEW.d AND total=NEW.total AND NEW.description IS NULL) NOTNULL) 
+#                 THEN RAISE (ABORT, 'Row already exists')
+#         END;
+# END;""")
+
+today = datetime.date.today()
+# now = datetime.datetime.now()
+
+# cur.execute("insert into test(d) values (?)", (today))
+# con.commit()
+# cur.execute('select d as "d [purchase_date_abbreviated]" from test')
+
+
+# cur.execute("select d, ts from test")
+# row = cur.fetchall()
+
+# cur.execute('select total as "total_money_spent [total_money]" from test;').fetchall()
+# print(today, "=>", row[0], type(row[0]))
+# print(now, "=>", row[1], type(row[1]))

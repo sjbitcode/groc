@@ -97,6 +97,7 @@ class Groc:
         :param row: A dictionary of purchase data.
         """
         # this raises an exception if wrong
+        print('in groc add manual purchase func')
         db.insert_a_row(self._get_connection(self.db_url), row)
     
     def add_purchase_path(self, path):

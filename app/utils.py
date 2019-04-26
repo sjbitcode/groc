@@ -26,6 +26,14 @@ def dollar_to_cents(dollar):
 def clean_unicode_whitespace(val):
     return unidecode(val).strip()
 
+def selector(x):
+        if isinstance(x, str):
+            if x == '':
+                return None
+            else:
+                return clean_unicode_whitespace(x)
+        return x
+
 def clean_row(row):
     """
     Clean row of data from csv by converting unicode characters to ASCII
@@ -37,11 +45,14 @@ def clean_row(row):
     # clean = lambda x: unidecode(x).lstrip().rstrip()
     # clean = lambda x: unidecode(x).strip()
     # return [clean(s) if isinstance(s, str) else s for s in row]
-    return {
-        key: clean_unicode_whitespace(row[key])
-        if isinstance(row[key], str) else row[key] 
-        for key in row.keys()
-    }
+    
+    return {key: selector(row[key]) for key in row.keys()}
+
+    # return {
+    #     key: clean_unicode_whitespace(row[key])
+    #     if isinstance(row[key], str) else row[key] 
+    #     for key in row.keys()
+    # }
 
 
 def clean_total(total):

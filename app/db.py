@@ -15,15 +15,43 @@ sqlite_create_store_table = """CREATE TABLE IF NOT EXISTS store (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(50) NOT NULL UNIQUE );"""
 
+# sqlite_create_purchase_table = """CREATE TABLE IF NOT EXISTS purchase (
+#     id INTEGER PRIMARY KEY AUTOINCREMENT,
+#     purchase_date TEXT NOT NULL,
+#     total INTEGER NOT NULL,
+#     description TEXT NOT NULL,
+#     store_id INTEGER NOT NULL,
+#     FOREIGN KEY (store_id) REFERENCES store(id),
+#     UNIQUE(purchase_date, total, description, store_id)
+# );"""
+
 sqlite_create_purchase_table = """CREATE TABLE IF NOT EXISTS purchase (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     purchase_date TEXT NOT NULL,
     total INTEGER NOT NULL,
-    description TEXT NOT NULL,
+    description TEXT,
     store_id INTEGER NOT NULL,
     FOREIGN KEY (store_id) REFERENCES store(id),
     UNIQUE(purchase_date, total, description, store_id)
 );"""
+
+sqlite_insert_purchase_trigger = """CREATE TRIGGER IF NOT EXISTS
+unique_with_null_description
+BEFORE INSERT 
+ON purchase
+WHEN NEW.description IS NULL
+BEGIN
+    SELECT CASE 
+        WHEN (
+            (SELECT 1 FROM purchase WHERE 
+                purchase_date=NEW.purchase_date AND
+                total=NEW.total AND
+                store_id=NEW.store_id AND
+                description IS NULL
+            ) NOTNULL)
+        THEN RAISE(ABORT, 'Purchase entry already exists!')
+    END;
+END;"""
 
 sqlite_list_tables = """SELECT name FROM sqlite_master WHERE type='table';"""
 
@@ -88,8 +116,7 @@ def execute_sql(conn, sql_statement_string, values=[]):
     with conn:
         try:
             cursor = conn.cursor()
-            res = cursor.execute(sql_statement_string, values).fetchall()
-            return res
+            return cursor.execute(sql_statement_string, values)
         except sqlite3.DatabaseError as e:
             raise DatabaseError(str(e))
 
@@ -104,6 +131,7 @@ def setup_db(conn):
     with conn:
         execute_sql(conn, sqlite_create_store_table)
         execute_sql(conn, sqlite_create_purchase_table)
+        execute_sql(conn, sqlite_insert_purchase_trigger)
 
 
 def list_tables(conn):
@@ -169,8 +197,16 @@ def clear_db(conn):
     :return:
     """
     with conn:
-        execute_sql(conn, sql_clear_purchase_table)
-        execute_sql(conn, sql_clear_store_table)
+        # execute_sql(conn, sql_clear_purchase_table)
+        # execute_sql(conn, sql_clear_store_table)
+        try:
+            cursor = conn.cursor()
+            return cursor.executescript('{} {}'.format(
+                sql_clear_purchase_table,
+                sql_clear_store_table
+            ))
+        except sqlite3.DatabaseError as e:
+            raise DatabaseError(str(e))
 
 
 def create_db():
@@ -280,6 +316,8 @@ def insert_a_row(conn, row):
     with conn:
         cursor = conn.cursor()
         try:
+            print('going to insert this row')
+            print(row)
             row = validate_row(row)
             insert_csv_row_sqlite(cursor, row)
             # conn.commit()
@@ -314,9 +352,11 @@ def insert_from_csv_dict(conn, file_path, db='sqlite'):
 
                     except InvalidRowException as exc:
                         print('Invalid row occured')
+                        break
 
                     except (sqlite3.IntegrityError, sqlite3.DatabaseError) as exc:
                         raise DatabaseInsertException(str(exc))
+                        break
 
 
 def insert_from_csv_dict_2(conn, file_path, db='sqlite'):
