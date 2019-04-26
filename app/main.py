@@ -102,11 +102,11 @@ def init(verbose):
 @click.option('--dry-run', is_flag=True)
 def reset(verbose, dry_run):
     g = Groc()
-    purchase_count = g.select_purchase_count_per_month()
+    # purchase_count = g.select_purchase_count_per_month()
     if verbose:
         click.echo('Attempting to delete all data from database')
-        if purchase_count:
-            click.echo(purchase_count)
+        # if purchase_count:
+        #     click.echo(purchase_count)
     if not dry_run:
         click.echo('You will be deleting some stuff!')
         g.clear_db()
