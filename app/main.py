@@ -1,3 +1,4 @@
+import copy
 import datetime
 import sqlite3
 import os
@@ -102,14 +103,13 @@ def init(verbose):
 @click.option('--dry-run', is_flag=True)
 def reset(verbose, dry_run):
     g = Groc()
-    # purchase_count = g.select_purchase_count_per_month()
+
     if verbose:
-        click.echo('Attempting to delete all data from database')
-        # if purchase_count:
-        #     click.echo(purchase_count)
+        purchase_count = g.select_purchase_count()
+        click.echo(f'Database reset will delete {purchase_count} purchase entries')
     if not dry_run:
-        click.echo('You will be deleting some stuff!')
         g.clear_db()
+        click.echo('Database reset successful')
 
 
 @groc_entrypoint.command('list', short_help='List purchases')
@@ -122,16 +122,26 @@ def reset(verbose, dry_run):
 @click.option('--verbose', is_flag=True)
 def list(limit, verbose):
     g = Groc()
-    purchases = g.list_purchases(limit=limit)
-    if verbose:
-        click.echo('More detailed data about purchases')
-    else:
-        click.echo('Less detailed data about purchases')
-    click.echo(from_db_cursor(purchases))
+    num_purchases = g.select_purchase_count()
+    output_msg = None
 
-    # if limit:
-    #     click.echo(limit)
-    #     click.echo(type(limit))
+    if num_purchases:
+        purchases = g.list_purchases(limit=limit)
+        table = from_db_cursor(purchases)
+        table.title = f'Last {limit} purchases'
+        table.align['store'] = 'r'
+        table.align['total'] = 'r'
+        table.align['description'] = 'l'
+        if verbose:
+            output_msg = table.get_string()
+        else:
+            field_names = [name for name in table.field_names]
+            field_names.remove('id')
+            output_msg = table.get_string(fields=field_names)
+    else:
+        output_msg = 'No purchase entries available. You should add some!'
+    
+    click.echo(output_msg)
 
 
 @groc_entrypoint.command('delete', short_help='Delete purchases')
@@ -208,15 +218,16 @@ def add(date, total, store, description, source):
         click.echo('Got a source')
         g.add_purchase_path(source)
     elif date:
-        date_str = date.strftime('%Y-%m-%d')
-        click.echo(type(date_str))
+        # date_str = date.strftime('%Y-%m-%d')
+        # click.echo(type(date_str))
         click.echo(type(date))
         click.echo(total)
         click.echo(store)
         click.echo(type(description))
         # g.add_purchase_manual({'date':date, 'total':total, 'store':store, 'description':description})
         g.add_purchase_manual({
-            'date': date.strftime('%Y-%m-%d'),
+            # 'date': date.strftime('%Y-%m-%d'),
+            'date': date,
             'total': total,
             'store': store,
             'description': description})

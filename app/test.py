@@ -36,36 +36,24 @@ def datetime_month_full(bytes_string):
     d = datetime.datetime.strptime(s, '%Y-%m-%d')
     return datetime.date.strftime(d, '%B')
 
-def description_none(bytes_string):
-    print(f'THIS IS BYTES ---> {bytes_string}')
-    s = str(bytes_string, 'utf-8')
-    print(f'THIS IS S ---> {s}')
-    if s:
-        return s
-    return '[none]'
-
 def total_to_float(bytes_string):
     s = int(str(bytes_string, 'utf-8'))
-    print(bytes_string)
-    # print(type(s))
-    # import sys
-    # t = int.from_bytes(bytes_string, byteorder=sys.byteorder)
     return f'${s:,.2f}'
 
 
-# sqlite3.register_converter("purchase_date", datetime_worded_full)
-# sqlite3.register_converter("purchase_date_abbreviated",
-#                            datetime_worded_abbreviated)
-# sqlite3.register_converter("purchase_month", datetime_month_full)
+sqlite3.register_converter("purchase_date", datetime_worded_full)
+sqlite3.register_converter("purchase_date_abbreviated",
+                           datetime_worded_abbreviated)
+sqlite3.register_converter("purchase_month", datetime_month_full)
+sqlite3.register_converter("total_money", total_to_float)
 
 # sqlite3.register_converter("default_description", description_none)
 
-# sqlite3.register_converter("total_money", total_to_float)
 
-# con = sqlite3.connect(g.db_url, detect_types=sqlite3.PARSE_COLNAMES)
-# cur = con.cursor()
-# cur.execute(
-#     "create table IF NOT EXISTS test(d date, total integer, description text)")
+con = sqlite3.connect(g.db_url, detect_types=sqlite3.PARSE_COLNAMES)
+con.row_factory = sqlite3.Row
+cur = con.cursor()
+cur.execute("create table IF NOT EXISTS test(d date, total integer, description text)")
 # cur.execute("""CREATE TRIGGER desc_unique BEFORE INSERT ON test
 # WHEN NEW.description
 # IS NULL

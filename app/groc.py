@@ -26,9 +26,18 @@ class Groc:
     @staticmethod
     def _get_connection(db_url):
         try:
-            connection = sqlite3.connect(db_url)
+            # Register sqlite converters
+            sqlite3.register_converter("purchase_date", db.datetime_worded_full)
+            sqlite3.register_converter("purchase_date_abbreviated",
+                                    db.datetime_worded_abbreviated)
+            sqlite3.register_converter("purchase_month", db.datetime_month_full)
+            sqlite3.register_converter("total_money", db.total_to_float)
+
+            connection = sqlite3.connect(
+                db_url, detect_types=sqlite3.PARSE_COLNAMES)
             connection.execute('PRAGMA foreign_keys = ON;')
             connection.row_factory = sqlite3.Row
+
             return connection
         except (sqlite3.OperationalError, sqlite3.DatabaseError):
             raise exceptions.DatabaseError('Error connecting to database')
@@ -73,6 +82,10 @@ class Groc:
     
     def select_purchase_count_per_month(self):
         return db.select_purchase_count_per_month(self._get_connection(self.db_url))
+    
+    def select_purchase_count(self):
+        cur = db.select_purchase_count(self._get_connection(self.db_url))
+        return cur.fetchone()['purchase_count']
 
     def delete_purchase(self, ids):
         """
@@ -98,7 +111,7 @@ class Groc:
         """
         # this raises an exception if wrong
         print('in groc add manual purchase func')
-        db.insert_a_row(self._get_connection(self.db_url), row)
+        db.insert_from_commandline(self._get_connection(self.db_url), row)
     
     def add_purchase_path(self, path):
         """

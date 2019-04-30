@@ -1,11 +1,12 @@
 import csv
+import datetime
 import os
 import sqlite3
 
 from prettytable import from_db_cursor
 
 from app.connection import SQLiteConnection
-from app.exceptions import DatabaseError, DatabaseInsertException, InvalidRowException
+from app.exceptions import GrocException, DatabaseError, DatabaseInsertException, InvalidRowException
 from app.settings import DB_URL
 from app.utils import validate_row
 
@@ -25,9 +26,10 @@ sqlite_create_store_table = """CREATE TABLE IF NOT EXISTS store (
 #     UNIQUE(purchase_date, total, description, store_id)
 # );"""
 
+# changing purchase_date type to date
 sqlite_create_purchase_table = """CREATE TABLE IF NOT EXISTS purchase (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    purchase_date TEXT NOT NULL,
+    purchase_date date NOT NULL,
     total INTEGER NOT NULL,
     description TEXT,
     store_id INTEGER NOT NULL,
@@ -59,11 +61,36 @@ sqlite_delete_purchase_by_id = """DELETE FROM purchase WHERE id IN (%s);"""
 
 sqlite_select_purchase_by_id = """SELECT * FROM purchase WHERE id IN (%s);"""
 
-sqlite_list_purchase_limit = """SELECT * FROM purchase LIMIT ?;"""
+# sqlite_list_purchase_limit = """SELECT * FROM purchase LIMIT ?;"""
+# sqlite_list_purchase_limit = """SELECT
+#     id,
+#     purchase_date as date,
+#     total as "total [total_money]",
+#     COALESCE(description, '--') description
+# FROM purchase LIMIT ?;"""
+sqlite_list_purchase_limit = """SELECT
+    p.id,
+    p.purchase_date AS date,
+    p.total AS "total [total_money]",
+    s.name AS store,
+    COALESCE(p.description, '--') description
+FROM purchase p
+INNER JOIN store s ON p.store_id = s.id
+ORDER BY date DESC
+LIMIT ?;"""
 
 sqlite_select_purchase_count_per_month = """SELECT
+    strftime ('%m',p.purchase_date) AS num_month,
+    p.purchase_date AS "month [purchase_month]",
+    COUNT(p.id) AS number_of_purchases
+FROM purchase p
+GROUP BY num_month
+ORDER BY num_month DESC;"""
+
+sqlite_select_purchase_count_and_total_per_month = """SELECT
+    strftime ('%m',p.purchase_date) AS month,
     COUNT(p.id) AS purchase_count,
-    strftime ('%m',p.purchase_date) AS month
+    SUM(p.total) as total_spent
 FROM purchase p
 INNER JOIN store s ON p.store_id = s.id
 GROUP BY month
@@ -92,7 +119,7 @@ WHERE table_schema = 'public';"""
 # SQL general statements
 sql_count_store_table = """SELECT COUNT(*) FROM store;"""
 
-sql_count_purchase_table = """SELECT COUNT(*) FROM purchase;"""
+sql_count_purchase_table = """SELECT COUNT(*) as purchase_count FROM purchase;"""
 
 sql_clear_store_table = """DELETE FROM store;"""
 
@@ -102,6 +129,25 @@ sql_delete_store_table = """DROP TABLE store;"""
 
 sql_delete_purchase_table = """DROP TABLE purchase;"""
 
+# SQLite converter methods
+def datetime_worded_abbreviated(bytes_string):
+    s = str(bytes_string, 'utf-8')
+    date = datetime.datetime.strptime(s, '%Y-%m-%d')
+    return datetime.date.strftime(date, '%b %d, %Y')
+
+def datetime_worded_full(bytes_string):
+    s = str(bytes_string, 'utf-8')
+    date = datetime.datetime.strptime(s, '%Y-%m-%d')
+    return datetime.date.strftime(date, '%B %d, %Y')
+
+def datetime_month_full(bytes_string):
+    s = str(bytes_string, 'utf-8')
+    date = datetime.datetime.strptime(s, '%Y-%m-%d')
+    return datetime.date.strftime(date, '%B')
+
+def total_to_float(bytes_string):
+    s = float(str(bytes_string, 'utf-8'))/100
+    return f'${s:,.2f}'
 
 # Useful db methods
 def execute_sql(conn, sql_statement_string, values=[]):
@@ -133,7 +179,6 @@ def setup_db(conn):
         execute_sql(conn, sqlite_create_purchase_table)
         execute_sql(conn, sqlite_insert_purchase_trigger)
 
-
 def list_tables(conn):
     """
     Get list of all tables in the sqlite database.
@@ -159,6 +204,11 @@ def select_by_id(conn, ids):
 def select_purchase_count_per_month(conn):
     with conn:
         return execute_sql(conn, sqlite_select_purchase_count_per_month)
+
+
+def select_purchase_count(conn):
+    with conn:
+        return execute_sql(conn, sql_count_purchase_table)
 
 
 def delete_from_db(conn, ids):
@@ -312,7 +362,7 @@ def insert_csv_row_postgres(cursor, row):
         VALUES (%s, %s, %s, %s);""",
         (purchase_date, total, description, store_id,))
 
-def insert_a_row(conn, row):
+def insert_from_commandline(conn, row):
     with conn:
         cursor = conn.cursor()
         try:
@@ -324,10 +374,15 @@ def insert_a_row(conn, row):
 
         except InvalidRowException as exc:
             # conn.rollback()
-            print('Invalid row occured')
+            # print(f'Invalid row occured - {str(exc)}')
+            # print(str(exc))
+            raise InvalidRowException(str(exc))
 
         except (sqlite3.IntegrityError, sqlite3.DatabaseError) as exc:
             raise DatabaseInsertException(str(exc))
+        
+        except:
+            raise
 
 def insert_from_csv_dict(conn, file_path, db='sqlite'):
     """ Insert contents from csv using DictReader """
@@ -351,12 +406,18 @@ def insert_from_csv_dict(conn, file_path, db='sqlite'):
                         insert_csv_row_sqlite(cursor, row)
 
                     except InvalidRowException as exc:
-                        print('Invalid row occured')
-                        break
+                        # print('Invalid row occured')
+                        # print(str(exc))
+                        raise InvalidRowException(str(exc))
+                        # break
 
                     except (sqlite3.IntegrityError, sqlite3.DatabaseError) as exc:
                         raise DatabaseInsertException(str(exc))
-                        break
+                        # break
+                    
+                    except:
+                        raise
+                        # break
 
 
 def insert_from_csv_dict_2(conn, file_path, db='sqlite'):
@@ -368,7 +429,7 @@ def insert_from_csv_dict_2(conn, file_path, db='sqlite'):
                                       for name in dict_reader.fieldnames]
 
             for row in dict_reader:
-                insert_a_row(conn, row)
+                insert_from_commandline(conn, row)
 
 
 def insert_from_csv(conn, file_paths, db='sqlite'):
