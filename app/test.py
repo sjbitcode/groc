@@ -36,6 +36,11 @@ def datetime_month_full(bytes_string):
     d = datetime.datetime.strptime(s, '%Y-%m-%d')
     return datetime.date.strftime(d, '%B')
 
+def datetime_month_numeric(bytes_string):
+    s = str(bytes_string, 'utf-8')
+    d = datetime.datetime.strptime(s, '%Y-%m-%d')
+    return datetime.date.strftime(d, '%m')
+
 def total_to_float(bytes_string):
     s = int(str(bytes_string, 'utf-8'))
     return f'${s:,.2f}'
@@ -45,13 +50,14 @@ sqlite3.register_converter("purchase_date", datetime_worded_full)
 sqlite3.register_converter("purchase_date_abbreviated",
                            datetime_worded_abbreviated)
 sqlite3.register_converter("purchase_month", datetime_month_full)
+sqlite3.register_converter("purchase_month_numeric", datetime_month_numeric)
 sqlite3.register_converter("total_money", total_to_float)
 
 # sqlite3.register_converter("default_description", description_none)
 
 
 con = sqlite3.connect(g.db_url, detect_types=sqlite3.PARSE_COLNAMES)
-con.row_factory = sqlite3.Row
+# con.row_factory = sqlite3.Row
 cur = con.cursor()
 cur.execute("create table IF NOT EXISTS test(d date, total integer, description text)")
 # cur.execute("""CREATE TRIGGER desc_unique BEFORE INSERT ON test

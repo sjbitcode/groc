@@ -21,11 +21,11 @@ def dollar_to_cents(dollar):
         return int(round(float(dollar)*100))
     except Exception as e:
         raise Exception(f'Total value could not convert to float: \'{dollar}\'') from e
-    # return round(float(dollar) * 100)
 
 
 def convert_unicode_whitespace(val):
     return unidecode(val).strip()
+
 
 def clean_row_value(x):
         if isinstance(x, str):
@@ -34,6 +34,7 @@ def clean_row_value(x):
             else:
                 return convert_unicode_whitespace(x)
         return x
+
 
 def clean_row_strings(row):
     """
@@ -81,17 +82,6 @@ def format_date(date):
             return datetime.date(date.year, date.month, date.day)
     except Exception as e:
         raise Exception(f'Date value should be able to convert to datetime: Got \'{date}\' instead') from e
-    
-    # if isinstance(date, datetime.datetime):
-    #     print('instance is datetime.datetime')
-    #     return datetime.date(date.year, date.month, date.day)
-    # elif isinstance(date, str):
-    #     print('instance is string')
-    #     # can raise ValueError if string does not match format
-    #     return datetime.datetime.strptime(date, '%Y-%m-%d')
-    # else:
-    #     # if value passed in is some other type
-    #     raise ValueError("Date value should be string or datetime of the format '%Y-%m-%d'")
 
 
 def check_row_integrity(row):
@@ -112,6 +102,7 @@ def check_row_integrity(row):
     incorrect_fieldnames = set(row.keys()) - fieldnames
     raise RowIntegrityError(
         f'Improperly formatted row: incorrect fieldnames: {incorrect_fieldnames}')
+
 
 def check_required_row_values(row):
     required_values_keys = {'date', 'store', 'total'}

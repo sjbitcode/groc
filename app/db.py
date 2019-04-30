@@ -59,7 +59,19 @@ sqlite_list_tables = """SELECT name FROM sqlite_master WHERE type='table';"""
 
 sqlite_delete_purchase_by_id = """DELETE FROM purchase WHERE id IN (%s);"""
 
-sqlite_select_purchase_by_id = """SELECT * FROM purchase WHERE id IN (%s);"""
+# sqlite_select_purchase_by_id = """SELECT * FROM purchase WHERE id IN (%s);"""
+sqlite_select_purchase_by_id = """SELECT
+    p.id,
+    p.purchase_date AS date,
+    p.total AS "total [total_money]",
+    s.name AS store,
+    COALESCE(p.description, '--') description
+FROM purchase p
+INNER JOIN store s ON p.store_id = s.id
+WHERE p.id IN (%s);"""
+
+sqlite_select_count_purchase_by_id = """SELECT id FROM purchase WHERE id IN (%s);"""
+sqlite_select_count_purchase_by_month = """SELECT id FROM purchase WHERE strftime('%%m', purchase_date) IN (%s);"""
 
 # sqlite_list_purchase_limit = """SELECT * FROM purchase LIMIT ?;"""
 # sqlite_list_purchase_limit = """SELECT
@@ -80,7 +92,7 @@ ORDER BY date DESC
 LIMIT ?;"""
 
 sqlite_select_purchase_count_per_month = """SELECT
-    strftime ('%m',p.purchase_date) AS num_month,
+    strftime ('%%m',p.purchase_date) AS num_month,
     p.purchase_date AS "month [purchase_month]",
     COUNT(p.id) AS number_of_purchases
 FROM purchase p
@@ -88,13 +100,21 @@ GROUP BY num_month
 ORDER BY num_month DESC;"""
 
 sqlite_select_purchase_count_and_total_per_month = """SELECT
-    strftime ('%m',p.purchase_date) AS month,
-    COUNT(p.id) AS purchase_count,
-    SUM(p.total) as total_spent
+    strftime ('%%m',p.purchase_date) AS num_month,
+    strftime('%%Y', p.purchase_date) AS num_year,
+    p.purchase_date as "month [purchase_month_year]",
+    SUM(p.total) as "total [total_money]",
+    COUNT(p.id) AS "purchase count",
+    MIN(p.total) as "min purchase [total_money]",
+	MAX(p.total) as "max purchase [total_money]",
+	round(avg(p.total)) as "avg purchase [total_money]",
+    COUNT(DISTINCT p.store_id) as "store count"
 FROM purchase p
-INNER JOIN store s ON p.store_id = s.id
-GROUP BY month
-ORDER BY month DESC;"""
+WHERE num_month IN (%s)
+GROUP BY 
+    num_month,
+    num_year
+ORDER BY num_year DESC, num_month DESC;"""
 
 
 # Postgres specific statements
@@ -144,6 +164,12 @@ def datetime_month_full(bytes_string):
     s = str(bytes_string, 'utf-8')
     date = datetime.datetime.strptime(s, '%Y-%m-%d')
     return datetime.date.strftime(date, '%B')
+
+def datetime_month_year_numeric(bytes_string):
+    s = str(bytes_string, 'utf-8')
+    date = datetime.datetime.strptime(s, '%Y-%m-%d')
+    # return datetime.date.strftime(date, '%m/%Y')
+    return datetime.date.strftime(date, '%b %Y')
 
 def total_to_float(bytes_string):
     s = float(str(bytes_string, 'utf-8'))/100
@@ -201,6 +227,22 @@ def select_by_id(conn, ids):
         return execute_sql(conn, sql_select, values=ids)
 
 
+def select_count_by_id(conn, ids):
+    with conn:
+        sql_select = multiple_parameter_substitution(
+            sqlite_select_count_purchase_by_id,
+            len(ids)
+        )
+        return execute_sql(conn, sql_select, values=ids)
+
+def select_ids_by_month(conn, months):
+    with conn:
+        sql_select = multiple_parameter_substitution(
+            sqlite_select_count_purchase_by_month,
+            len(months)
+        )
+        return execute_sql(conn, sql_select, values=months)
+
 def select_purchase_count_per_month(conn):
     with conn:
         return execute_sql(conn, sqlite_select_purchase_count_per_month)
@@ -210,6 +252,13 @@ def select_purchase_count(conn):
     with conn:
         return execute_sql(conn, sql_count_purchase_table)
 
+def select_count_total_per_month(conn, months):
+    with conn:
+        sql_select = multiple_parameter_substitution(
+            sqlite_select_purchase_count_and_total_per_month,
+            len(months)
+        )
+        return execute_sql(conn, sql_select, values=months)
 
 def delete_from_db(conn, ids):
     """

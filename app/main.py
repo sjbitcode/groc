@@ -89,12 +89,13 @@ def groc_entrypoint(ctx):
 @click.option('--verbose', is_flag=True)
 def init(verbose):
     g = Groc()
+
     if verbose:
         if g.groc_dir_exists():
-            click.echo('Groc directory exists')
+            click.echo('groc directory exists')
         else:
             click.echo('Creating groc directory')
-        click.echo('Attempting create database...')
+        click.echo('Attempting to create database...')
     g.init_groc()
 
 
@@ -106,7 +107,7 @@ def reset(verbose, dry_run):
 
     if verbose:
         purchase_count = g.select_purchase_count()
-        click.echo(f'Database reset will delete {purchase_count} purchase entries')
+        click.echo(f'Database reset will delete {purchase_count} purchase entries.')
     if not dry_run:
         g.clear_db()
         click.echo('Database reset successful')
@@ -122,6 +123,7 @@ def reset(verbose, dry_run):
 @click.option('--verbose', is_flag=True)
 def list(limit, verbose):
     g = Groc()
+
     num_purchases = g.select_purchase_count()
     output_msg = None
 
@@ -139,10 +141,50 @@ def list(limit, verbose):
             field_names.remove('id')
             output_msg = table.get_string(fields=field_names)
     else:
-        output_msg = 'No purchase entries available. You should add some!'
+        output_msg = 'No purchase entries available. You should add some!\nSee groc add --help to add purchases.'
     
     click.echo(output_msg)
 
+
+@groc_entrypoint.command('breakdown', short_help='Show helpful stats for monthly purchases')
+@click.option('--month', '-m',
+              default=(datetime.date.today().strftime('%m'),),
+              type=click.DateTime(formats=['%m']),
+              multiple=True,
+              show_default=True,
+              help='month as a two digit number')
+@click.option('--verbose', is_flag=True)
+def breakdown(month, verbose):
+    g = Groc()
+    num_purchases = g.select_purchase_count()
+    output_msg = None
+
+    if num_purchases:
+        month_list = [datetime.datetime.strftime(m, '%m') for m in month]
+        data = g.breakdown(month_list)
+        table = from_db_cursor(data)
+        field_names = [name for name in table.field_names]
+
+        # Add a row with dashes if table empty
+        temp_str = table.get_string()
+        temp_table = copy.deepcopy(table)
+        temp_table.clear_rows()
+        if temp_str == temp_table.get_string():
+            table.add_row(['--' for x in field_names])
+
+        # Rmove columns used for db ordering
+        field_names.remove('num_month')
+        field_names.remove('num_year')
+        if not verbose:
+            field_names.remove('min purchase')
+            field_names.remove('max purchase')
+            field_names.remove('avg purchase')
+            field_names.remove('store count')
+        output_msg = table.get_string(fields=field_names)
+    else:
+        output_msg = 'No purchase entries available. You should add some!\nSee groc add --help to add purchases.'
+    
+    click.echo(output_msg)
 
 @groc_entrypoint.command('delete', short_help='Delete purchases')
 @click.option('--dry-run', is_flag=True)
@@ -155,13 +197,16 @@ def list(limit, verbose):
 @click.option('--verbose', is_flag=True)
 def delete(dry_run, id, verbose):
     g = Groc()
-    purchases = g.select_by_id(id)
-    if purchases:
+    purchase_count = g.select_count_by_id(id)
+
+    if purchase_count.fetchone():
         if verbose:
-            click.echo('Heres some details about the purchases that you\'re about to delete')
-            click.echo('Deleting purchase {}'.format(id))
-            click.echo(type(id))
-            click.echo(purchases)
+            purchases = g.select_by_id(id)
+            table = from_db_cursor(purchases)
+            table.align['store'] = 'r'
+            table.align['total'] = 'r'
+            table.align['description'] = 'l'
+            click.echo(table)
 
         if not dry_run:
             click.echo('Deleting...')
@@ -176,7 +221,6 @@ def delete(dry_run, id, verbose):
     help='Dollar amount of purchase',
     cls=MutuallyExclusiveOption,
     mutually_exclusive=['source'],
-    # required_with=['date', 'store', 'description']
     required_with=['date', 'store']
 )
 @click.option('--date',
@@ -184,7 +228,6 @@ def delete(dry_run, id, verbose):
     help='The date of purchase',
     cls=MutuallyExclusiveOption,
     mutually_exclusive=['source'],
-    # required_with=['total', 'store', 'description']
     required_with=['total', 'store']
 )
 @click.option('--store',
@@ -192,7 +235,6 @@ def delete(dry_run, id, verbose):
     help='Store name where purchase was made',
     cls=MutuallyExclusiveOption,
     mutually_exclusive=['source'],
-    # required_with=['date', 'total', 'description']
     required_with=['date', 'total']
 )
 @click.option('--description',
@@ -213,20 +255,11 @@ def add(date, total, store, description, source):
     Add a purchase via command line, file, or directory
     """
     g = Groc()
-    click.echo('Add a purchase manually or by file')
+
     if source:
-        click.echo('Got a source')
         g.add_purchase_path(source)
     elif date:
-        # date_str = date.strftime('%Y-%m-%d')
-        # click.echo(type(date_str))
-        click.echo(type(date))
-        click.echo(total)
-        click.echo(store)
-        click.echo(type(description))
-        # g.add_purchase_manual({'date':date, 'total':total, 'store':store, 'description':description})
         g.add_purchase_manual({
-            # 'date': date.strftime('%Y-%m-%d'),
             'date': date,
             'total': total,
             'store': store,
@@ -237,30 +270,13 @@ def add(date, total, store, description, source):
         options "--date", "store", "--total", "description" required together.
         ''')
 
-@groc_entrypoint.command('breakdown', short_help='Show helpful stats for monthly purchases')
-@click.option('--month', '-m',
-    default=(datetime.date.today().strftime('%m'),),
-    type=click.DateTime(formats=['%m']),
-    multiple=True,
-    show_default=True,
-    help='month as a two digit number')
-def breakdown(month):
-    click.echo('Breakdown command')
-    click.echo(type(month))
-    for m in month:
-        click.echo(m.strftime('%m'))
-
 def safe_entry_point():
     try:
-        click.secho('trying your command', fg='green')
         groc_entrypoint()
-        print('I EXECUTED THE THINGSSSSSSS!!!')
     except Exception as e:
         click.secho(str(e), fg='red')
 
 if __name__ == '__main__':
-    # groc_entrypoint()
-
     safe_entry_point()
 
 
