@@ -91,13 +91,14 @@ class Groc:
         """
         db.delete_from_db(self._get_connection(self.db_url), ids)
     
-    def list_purchases(self, limit=50):
-        """
-        List purchases limited by amount.
-
-        :param limit: Integer amount to limit purchases. Defaults to 50.
-        """
+    def list_purchases_date(self, month, year):
+        return db.get_purchases_date(self._get_connection(self.db_url), month, year)
+    
+    def list_purchases_limit(self, limit=50):
         return db.get_purchases_limit(self._get_connection(self.db_url), limit)
+    
+    def list_purchases_date_limit(self, month, year, limit=50):
+        return db.get_purchases_date_limit(self._get_connection(self.db_url), month, year, limit)
     
     def add_purchase_manual(self, row):
         """

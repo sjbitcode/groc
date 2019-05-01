@@ -80,6 +80,20 @@ sqlite_select_count_purchase_by_month = """SELECT id FROM purchase WHERE strftim
 #     total as "total [total_money]",
 #     COALESCE(description, '--') description
 # FROM purchase LIMIT ?;"""
+sqlite_list_purchase_date_limit = """SELECT
+    p.id,
+    p.purchase_date AS date,
+    p.total AS "total [total_money]",
+    s.name AS store,
+    COALESCE(p.description, '--') description
+FROM purchase p
+INNER JOIN store s ON p.store_id = s.id
+WHERE 
+    strftime ('%m', date) = ?
+    AND strftime ('%Y', date) = ?
+ORDER BY date DESC
+LIMIT ?;"""
+
 sqlite_list_purchase_limit = """SELECT
     p.id,
     p.purchase_date AS date,
@@ -90,6 +104,19 @@ FROM purchase p
 INNER JOIN store s ON p.store_id = s.id
 ORDER BY date DESC
 LIMIT ?;"""
+
+sqlite_list_purchase_date = """SELECT
+    p.id,
+    p.purchase_date AS date,
+    p.total AS "total [total_money]",
+    s.name AS store,
+    COALESCE(p.description, '--') description
+FROM purchase p
+INNER JOIN store s ON p.store_id = s.id
+WHERE 
+    strftime ('%m', date) = ?
+    AND strftime ('%Y', date) = ?
+ORDER BY date DESC;"""
 
 sqlite_select_purchase_count_per_month = """SELECT
     strftime ('%%m',p.purchase_date) AS num_month,
@@ -106,8 +133,8 @@ sqlite_select_purchase_count_and_total_per_month = """SELECT
     SUM(p.total) as "total [total_money]",
     COUNT(p.id) AS "purchase count",
     MIN(p.total) as "min purchase [total_money]",
-	MAX(p.total) as "max purchase [total_money]",
-	round(avg(p.total)) as "avg purchase [total_money]",
+    MAX(p.total) as "max purchase [total_money]",
+    round(avg(p.total)) as "avg purchase [total_money]",
     COUNT(DISTINCT p.store_id) as "store count"
 FROM purchase p
 WHERE num_month IN (%s)
@@ -176,7 +203,7 @@ def total_to_float(bytes_string):
     return f'${s:,.2f}'
 
 # Useful db methods
-def execute_sql(conn, sql_statement_string, values=[]):
+def execute_sql(conn, sql_statement_string, values=()):
     """
     Execute a sql statement via connection cursor.
 
@@ -276,7 +303,7 @@ def delete_from_db(conn, ids):
         return execute_sql(conn, sql_delete, values=ids)
 
 
-def get_purchases_limit(conn, limit):
+def get_purchases_date_limit(conn, month, year, limit):
     """
     Gets rows from the purchase table limited by amount specified.
 
@@ -285,7 +312,17 @@ def get_purchases_limit(conn, limit):
     :returns: List of results.
     """
     with conn:
-        return execute_sql(conn, sqlite_list_purchase_limit, values=[limit])
+        return execute_sql(conn, sqlite_list_purchase_date_limit, values=(month, year, limit,))
+    
+
+def get_purchases_date(conn, month, year):
+    with conn:
+        return execute_sql(conn, sqlite_list_purchase_date, values=(month, year,))
+
+
+def get_purchases_limit(conn, limit):
+    with conn:
+        return execute_sql(conn, sqlite_list_purchase_limit, values=(limit,))
 
 
 def clear_db(conn):

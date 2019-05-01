@@ -118,19 +118,61 @@ def reset(verbose, dry_run):
     type=int,
     default=50,
     show_default=True,
-    help='Number of last purchases'
+    help='Number of last purchases',
+    cls=MutuallyExclusiveOption,
+    mutually_exclusive=['all']
+)
+@click.option('--month', '-m',
+    type=click.DateTime(formats=['%m']),
+    help='month as a two digit number'
+)
+@click.option('--year', '-y',
+    type=click.DateTime(formats=['%Y']),
+    default=(datetime.date.today().strftime('%Y')),
+    show_default=True,
+    help='year as a four digit number',
+    cls=MutuallyExclusiveOption,
+    required_with=['month']
+)
+@click.option('--all', '-a', is_flag=True,
+    cls=MutuallyExclusiveOption,
+    mutually_exclusive=['limit'],
+    required_with=['month'],
+    help='list all entries'
 )
 @click.option('--verbose', is_flag=True)
-def list(limit, verbose):
+def list(limit, month, year, all, verbose):
+
+    click.echo(f'limit - {limit}')
+    click.echo(f'month - {month}')
+    click.echo(f'year - {year}')
+    click.echo(f'all - {all}')
+    click.echo(f'verbose - {verbose}')
+
     g = Groc()
 
     num_purchases = g.select_purchase_count()
     output_msg = None
 
     if num_purchases:
-        purchases = g.list_purchases(limit=limit)
+        purchases = None
+        table_title = None
+
+        if month:
+            month = datetime.datetime.strftime(month, '%m')
+            year = datetime.datetime.strftime(year, '%Y')
+            if all:
+                table_title = f'All purchases from {month}/{year}'
+                purchases = g.list_purchases_date(month, year)
+            else:
+                table_title = f'Last {limit} purchase(s) from {month}/{year}'
+                purchases = g.list_purchases_date_limit(month, year, limit)
+        else:
+            table_title = f'Last {limit} purchase(s)'
+            purchases = g.list_purchases_limit(limit)
+
         table = from_db_cursor(purchases)
-        table.title = f'Last {limit} purchases'
+        table.title = table_title
         table.align['store'] = 'r'
         table.align['total'] = 'r'
         table.align['description'] = 'l'
@@ -148,11 +190,11 @@ def list(limit, verbose):
 
 @groc_entrypoint.command('breakdown', short_help='Show helpful stats for monthly purchases')
 @click.option('--month', '-m',
-              default=(datetime.date.today().strftime('%m'),),
-              type=click.DateTime(formats=['%m']),
-              multiple=True,
-              show_default=True,
-              help='month as a two digit number')
+    default=(datetime.date.today().strftime('%m'),),
+    type=click.DateTime(formats=['%m']),
+    multiple=True,
+    show_default=True,
+    help='month as a two digit number')
 @click.option('--verbose', is_flag=True)
 def breakdown(month, verbose):
     g = Groc()
