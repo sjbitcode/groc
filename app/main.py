@@ -110,7 +110,7 @@ def reset(verbose, dry_run):
         click.echo(f'Database reset will delete {purchase_count} purchase entries.')
     if not dry_run:
         g.clear_db()
-        click.echo('Database reset successful')
+        click.echo('Database reset successful.')
 
 
 @groc_entrypoint.command('list', short_help='List purchases')
@@ -197,9 +197,9 @@ def breakdown(month, verbose):
 @click.option('--verbose', is_flag=True)
 def delete(dry_run, id, verbose):
     g = Groc()
-    purchase_count = g.select_count_by_id(id)
+    purchase_ids_exist = g.select_count_by_id(id).fetchall()
 
-    if purchase_count.fetchone():
+    if purchase_ids_exist:
         if verbose:
             purchases = g.select_by_id(id)
             table = from_db_cursor(purchases)
@@ -209,10 +209,13 @@ def delete(dry_run, id, verbose):
             click.echo(table)
 
         if not dry_run:
-            click.echo('Deleting...')
             g.delete_purchase(id)
+        
+        ids_str = ', '.join([str(row['id']) for row in purchase_ids_exist])
+        click.echo(f'\nDeleted purchases with id(s) {ids_str}.')
     else:
-        click.echo('No purchases with ids {} to be deleted'.format(id))
+        ids_str = ', '.join([str(i) for i in id])
+        click.echo('No purchases with id(s) {} to be deleted.'.format(ids_str))
 
 
 @groc_entrypoint.command('add', short_help='Add purchases')
