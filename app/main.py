@@ -140,13 +140,6 @@ def reset(dry_run):
 )
 @click.option('--verbose', is_flag=True)
 def list(limit, month, year, all, verbose):
-
-    click.echo(f'limit - {limit}')
-    click.echo(f'month - {month}')
-    click.echo(f'year - {year}')
-    click.echo(f'all - {all}')
-    click.echo(f'verbose - {verbose}')
-
     g = Groc()
 
     num_purchases = g.select_purchase_count()
@@ -185,7 +178,7 @@ def list(limit, month, year, all, verbose):
     
     click.echo(output_msg)
 
-def check_month_year(ctx, param, value):
+def format_month_year(ctx, param, value):
     if value:
         if param.name == 'month':
             value = [datetime.datetime.strftime(m, '%m') for m in value]
@@ -199,14 +192,14 @@ def check_month_year(ctx, param, value):
     multiple=True,
     show_default=True,
     help='month as a two digit number',
-    callback=check_month_year
+    callback=format_month_year
 )
 @click.option('--year', '-y',
     type=click.DateTime(formats=['%Y']),
     multiple=True,
     show_default=True,
     help='year as a four digit number',
-    callback=check_month_year
+    callback=format_month_year
 )
 @click.option('--verbose', is_flag=True)
 def breakdown(month, year, verbose):
@@ -270,11 +263,13 @@ def delete(dry_run, id, verbose):
             table.align['description'] = 'l'
             click.echo(table)
 
+        ids_str = ', '.join([str(row['id']) for row in purchase_ids_exist])
+        click.echo(f'Deleting purchases with id(s) {ids_str}.')
+
         if not dry_run:
             g.delete_purchase(id)
+            click.echo(f'Delete successful.')
         
-        ids_str = ', '.join([str(row['id']) for row in purchase_ids_exist])
-        click.echo(f'\nDeleted purchases with id(s) {ids_str}.')
     else:
         ids_str = ', '.join([str(i) for i in id])
         click.echo('No purchases with id(s) {} to be deleted.'.format(ids_str))
@@ -322,13 +317,23 @@ def add(date, total, store, description, source):
     g = Groc()
 
     if source:
+        # Get current purchase count.
+        current_num_purchases = g.select_purchase_count()
+
+        # Add purchases from path.
         g.add_purchase_path(source)
+
+        # Get updated purchase count and calculate difference.
+        updated_num_purchases = g.select_purchase_count()
+        count = updated_num_purchases - current_num_purchases
+        click.echo(f'Added {count} purchase(s) successfully.')
     elif date:
         g.add_purchase_manual({
             'date': date,
             'total': total,
             'store': store,
             'description': description})
+        click.echo('Added 1 purchase successfully.')
     else:
         raise click.UsageError('''
         Missing option "--source" OR
