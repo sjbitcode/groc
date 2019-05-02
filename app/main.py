@@ -100,14 +100,12 @@ def init(verbose):
 
 
 @groc_entrypoint.command('reset', short_help='Reset database')
-@click.option('--verbose', is_flag=True)
 @click.option('--dry-run', is_flag=True)
-def reset(verbose, dry_run):
+def reset(dry_run):
     g = Groc()
 
-    if verbose:
-        purchase_count = g.select_purchase_count()
-        click.echo(f'Database reset will delete {purchase_count} purchase entries.')
+    purchase_count = g.select_purchase_count()
+    click.echo(f'Database reset will delete {purchase_count} purchase entries.')
     if not dry_run:
         g.clear_db()
         click.echo('Database reset successful.')
