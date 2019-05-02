@@ -19,6 +19,8 @@ class Groc:
                                     db.datetime_worded_abbreviated)
             sqlite3.register_converter("purchase_month", db.datetime_month_full)
             sqlite3.register_converter(
+                "purchase_month_abbreviated", db.datetime_month_abbreviated)
+            sqlite3.register_converter(
                 "purchase_month_year", db.datetime_month_year_numeric)
             sqlite3.register_converter("total_money", db.total_to_float)
 
@@ -72,8 +74,8 @@ class Groc:
     def select_ids_by_month(self, months):
         return db.select_ids_by_month(self._get_connection(self.db_url), months)
     
-    def breakdown(self, month):
-        return db.select_count_total_per_month(self._get_connection(self.db_url), month)
+    def breakdown(self, month, year):
+        return db.select_count_total_per_month(self._get_connection(self.db_url), month, year)
     
     def select_purchase_count_per_month(self):
         return db.select_purchase_count_per_month(self._get_connection(self.db_url))

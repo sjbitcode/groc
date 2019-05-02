@@ -128,8 +128,8 @@ ORDER BY num_month DESC;"""
 
 sqlite_select_purchase_count_and_total_per_month = """SELECT
     strftime ('%%m',p.purchase_date) AS num_month,
-    strftime('%%Y', p.purchase_date) AS num_year,
-    p.purchase_date as "month [purchase_month_year]",
+    strftime('%%Y', p.purchase_date) AS year,
+    p.purchase_date as "month [purchase_month_abbreviated]",
     SUM(p.total) as "total [total_money]",
     COUNT(p.id) AS "purchase count",
     MIN(p.total) as "min purchase [total_money]",
@@ -137,11 +137,11 @@ sqlite_select_purchase_count_and_total_per_month = """SELECT
     round(avg(p.total)) as "avg purchase [total_money]",
     COUNT(DISTINCT p.store_id) as "store count"
 FROM purchase p
-WHERE num_month IN (%s)
+WHERE num_month IN (%s) AND year IN (%s)
 GROUP BY 
     num_month,
-    num_year
-ORDER BY num_year DESC, num_month DESC;"""
+    year
+ORDER BY year DESC, num_month DESC;"""
 
 
 # Postgres specific statements
@@ -191,6 +191,11 @@ def datetime_month_full(bytes_string):
     s = str(bytes_string, 'utf-8')
     date = datetime.datetime.strptime(s, '%Y-%m-%d')
     return datetime.date.strftime(date, '%B')
+
+def datetime_month_abbreviated(bytes_string):
+    s = str(bytes_string, 'utf-8')
+    date = datetime.datetime.strptime(s, '%Y-%m-%d')
+    return datetime.date.strftime(date, '%b')
 
 def datetime_month_year_numeric(bytes_string):
     s = str(bytes_string, 'utf-8')
@@ -249,7 +254,7 @@ def select_by_id(conn, ids):
     with conn:
         sql_select = multiple_parameter_substitution(
             sqlite_select_purchase_by_id,
-            len(ids)
+            [len(ids)]
         )
         return execute_sql(conn, sql_select, values=ids)
 
@@ -258,7 +263,7 @@ def select_count_by_id(conn, ids):
     with conn:
         sql_select = multiple_parameter_substitution(
             sqlite_select_count_purchase_by_id,
-            len(ids)
+            [len(ids)]
         )
         return execute_sql(conn, sql_select, values=ids)
 
@@ -279,13 +284,13 @@ def select_purchase_count(conn):
     with conn:
         return execute_sql(conn, sql_count_purchase_table)
 
-def select_count_total_per_month(conn, months):
+def select_count_total_per_month(conn, months, years):
     with conn:
         sql_select = multiple_parameter_substitution(
             sqlite_select_purchase_count_and_total_per_month,
-            len(months)
+            [len(months), len(years)]
         )
-        return execute_sql(conn, sql_select, values=months)
+        return execute_sql(conn, sql_select, values=tuple(months + years))
 
 def delete_from_db(conn, ids):
     """
@@ -298,7 +303,7 @@ def delete_from_db(conn, ids):
     with conn:
         sql_delete = multiple_parameter_substitution(
             sqlite_delete_purchase_by_id,
-            len(ids)
+            [len(ids)]
         )
         return execute_sql(conn, sql_delete, values=ids)
 
@@ -370,7 +375,7 @@ def delete_db():
         print(f'Database file not found at {DB_URL}')
 
 
-def multiple_parameter_substitution(sql_statement_string, length):
+def multiple_parameter_substitution(sql_statement_string, lengths):
     """
     Parameterize a sqlite IN statement with correct number
     of '?' for arguments passed in and returns the sql 
@@ -386,9 +391,12 @@ def multiple_parameter_substitution(sql_statement_string, length):
 
     :param sql_statement_string: A SQLite query string
     :param length: Integer to generate '?' placeholder
+    :param lengths: Array of integer values to generate '?' placeholder
     :return: Modified sql statement string with string placeholders of passed length
     """
-    return sql_statement_string % ','.join('?'*length)
+    string_placements = tuple([','.join('?'*length) for length in lengths])
+    return sql_statement_string % string_placements
+    # return sql_statement_string % ','.join('?'*length)
 
 
 def insert_csv_row_sqlite(cursor, row):

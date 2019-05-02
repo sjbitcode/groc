@@ -187,23 +187,46 @@ def list(limit, month, year, all, verbose):
     
     click.echo(output_msg)
 
+def check_month_year(ctx, param, value):
+    if value:
+        if param.name == 'month':
+            value = [datetime.datetime.strftime(m, '%m') for m in value]
+        if param.name == 'year':
+            value = [datetime.datetime.strftime(y, '%Y') for y in value]
+    return value
 
 @groc_entrypoint.command('breakdown', short_help='Show helpful stats for monthly purchases')
 @click.option('--month', '-m',
-    default=(datetime.date.today().strftime('%m'),),
     type=click.DateTime(formats=['%m']),
     multiple=True,
     show_default=True,
-    help='month as a two digit number')
+    help='month as a two digit number',
+    callback=check_month_year
+)
+@click.option('--year', '-y',
+    type=click.DateTime(formats=['%Y']),
+    multiple=True,
+    show_default=True,
+    help='year as a four digit number',
+    callback=check_month_year
+)
 @click.option('--verbose', is_flag=True)
-def breakdown(month, verbose):
+def breakdown(month, year, verbose):
     g = Groc()
+
     num_purchases = g.select_purchase_count()
     output_msg = None
 
+    if year and not month:
+        month = ['0'+str(x) if len(str(x)) == 1 else str(x)
+                for x in range(1, 12)]
+    if not year:
+        year = [datetime.date.today().strftime('%Y')]
+    if not month:
+        month = [datetime.date.today().strftime('%m')]
+
     if num_purchases:
-        month_list = [datetime.datetime.strftime(m, '%m') for m in month]
-        data = g.breakdown(month_list)
+        data = g.breakdown(month, year)
         table = from_db_cursor(data)
         field_names = [name for name in table.field_names]
 
@@ -216,7 +239,6 @@ def breakdown(month, verbose):
 
         # Rmove columns used for db ordering
         field_names.remove('num_month')
-        field_names.remove('num_year')
         if not verbose:
             field_names.remove('min purchase')
             field_names.remove('max purchase')
