@@ -110,15 +110,20 @@ def reset(dry_run):
         g.clear_db()
         click.echo('Database reset successful.')
 
+def check_limit(ctx, param, value):
+    if value > 100:
+        value = 100
+    return value
 
 @groc_entrypoint.command('list', short_help='List purchases')
 @click.option('--limit', '-l',
     type=int,
     default=50,
     show_default=True,
-    help='Number of last purchases',
+    help='Number of last purchases. Maximum 100 allowed.',
     cls=MutuallyExclusiveOption,
-    mutually_exclusive=['all']
+    mutually_exclusive=['all'],
+    callback=check_limit
 )
 @click.option('--month', '-m',
     type=click.DateTime(formats=['%m']),
