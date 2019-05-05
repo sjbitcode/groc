@@ -37,12 +37,16 @@ def check_required_row_values(row):
     Raises:
         RowIntegrityError: If a required value is falsey.
     """
-    required_values_keys = {'date', 'store', 'total'}
+    required_values_keys = ['date', 'store', 'total']
+    not_supplied = [
+        key for key in required_values_keys if not row[key]]
 
-    for key in required_values_keys:
-        if not row[key]:
-            raise RowIntegrityError(
-                f'{key.title()} value is required: \'{row[key]}\'')
+    not_supplied_str = ", ".join(not_supplied)
+    not_supplied_values = ", ".join([f"\'{row[key]}\'" for key in not_supplied])
+
+    if not_supplied:
+        raise RowIntegrityError(
+            f'{not_supplied_str} value(s) required: ({not_supplied_values})')
 
 
 def convert_unicode_whitespace(value):
