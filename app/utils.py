@@ -1,179 +1,185 @@
-import csv
 import datetime
+import decimal as dc
 import os
-import sqlite3
 
 from unidecode import unidecode
 
-from app.exceptions import GrocException, InvalidRowException, RowIntegrityError
-from app.settings import BASE_DIR, CSV_DIR
-
-
-def dollar_to_cents(dollar):
-    """
-    Convert a dollar amount (float) to cents (integer).
-
-    :param dollar: A string or float representing dollar amount
-    :return: An integer representing amount as cents.
-    :raises ValueError or TypeError if value cannot be casted to float.
-    """
-    try:
-        return int(round(float(dollar)*100))
-    except Exception as e:
-        raise Exception(f'Total value could not convert to float: \'{dollar}\'') from e
-
-
-def convert_unicode_whitespace(val):
-    return unidecode(val).strip()
-
-
-def clean_row_value(x):
-        if isinstance(x, str):
-            if x == '':
-                return None
-            else:
-                return convert_unicode_whitespace(x)
-        return x
-
-
-def clean_row_strings(row):
-    """
-    Clean row of data from csv by converting unicode characters to ASCII
-    and strip whitespaces.
-
-    :param row: List of strings read in from csv
-    :return: List of cleaned strings
-    """
-    # clean = lambda x: unidecode(x).lstrip().rstrip()
-    # clean = lambda x: unidecode(x).strip()
-    # return [clean(s) if isinstance(s, str) else s for s in row]
-
-    return {key: clean_row_value(row[key]) for key in row.keys()}
-
-    # return {
-    #     key: convert_unicode_whitespace(row[key])
-    #     if isinstance(row[key], str) else row[key] 
-    #     for key in row.keys()
-    # }
-
-
-def format_total(total):
-    """
-    Update the total and description values of csv row.
-    Convert total to integer.
-    Ensure that description value is nonempty.
-
-    :param row: Row from csv file
-    :return: Row with total and description validated
-    """
-    return dollar_to_cents(total)
-    # row['description'] = row['description'] or 'grocery'
-    # row[2] = dollar_to_cents(row[2])
-    # row[3] = row[3] or 'grocery'
-    # return row
-
-
-def format_date(date):
-    try:
-        if isinstance(date, str):
-            date = datetime.datetime.strptime(date, '%Y-%m-%d')
-
-        if isinstance(date, datetime.datetime):
-            return datetime.date(date.year, date.month, date.day)
-    except Exception as e:
-        raise Exception(f'Date value should be able to convert to datetime: Got \'{date}\' instead') from e
+from app.exceptions import (InvalidRowException, RowIntegrityError,
+                            RowValueError)
 
 
 def check_row_integrity(row):
     """
-    Make sure a row has correct fieldnames.
+    Check that a dictionary contains a set of keys exactly.
 
-    :param row: Row read from csv files as ordered dict
-    :return: None
-    :raises RowIntegrityError if row does not have correct fieldnames
+    Args:
+        row (dict/ordered dict): A dictionary of purchase data.
+
+    Raises:
+        RowIntegrityError: If keys are not found in dict.
     """
-
-    # Check ordered dict keys
     fieldnames = {'date', 'store', 'total', 'description'}
-    if set(row.keys()) == fieldnames:
-        return
-    
-    # Get fieldnames from row that are not in supported fieldnames
-    incorrect_fieldnames = set(row.keys()) - fieldnames
-    raise RowIntegrityError(
-        f'Improperly formatted row: incorrect fieldnames: {incorrect_fieldnames}')
+
+    if set(row.keys()) != fieldnames:
+        # Get fieldnames that are not in supported fieldnames
+        incorrect_fieldnames = set(row.keys()) - fieldnames
+        raise RowIntegrityError(
+            f'Improperly formatted fieldnames: {incorrect_fieldnames}')
 
 
 def check_required_row_values(row):
+    """
+    Check that required purchase values exist.
+
+    Args:
+        row (dict/ordered dict): A dictionary of purchase data.
+
+    Raises:
+        RowIntegrityError: If a required value is falsey.
+    """
     required_values_keys = {'date', 'store', 'total'}
+
     for key in required_values_keys:
         if not row[key]:
-            raise RowIntegrityError(f'{key.title()} value is required: Got \'{row[key]}\' instead')
-    return
+            raise RowIntegrityError(
+                f'{key.title()} value is required: \'{row[key]}\'')
+
+
+def convert_unicode_whitespace(value):
+    """Converts all unicode characters to ascii and removes whitespace."""
+    return unidecode(value).strip()
+
+
+def clean_row_strings(row):
+    """
+    Clean string values in given dictionary.
+
+    Args:
+        row (dict): A dictionary of purchase data.
+
+    Returns:
+        dict: A dictionary with string values cleaned.
+    """
+    cleaned_row = {}
+
+    for key, value in row.items():
+        if isinstance(value, str):
+            # Empty strings will be converted to None
+            cleaned_row[key] = convert_unicode_whitespace(value) or None
+        else:
+            cleaned_row[key] = value
+
+    return cleaned_row
+
+
+def format_total(total):
+    """
+    Converts dollar amount to cents.
+
+    Args:
+        total (str/int): The purchase total value.
+
+    Returns:
+        int: Total cents.
+
+    Raises:
+        RowValueError: If dollar could not be converted to cents.
+    """
+    try:
+        # return int(round(float(total)*100))
+        return int(
+            dc.Decimal(str(total))
+            .quantize(
+                dc.Decimal('.01'), rounding=dc.ROUND_HALF_UP
+            )
+            * 100
+        )
+    except (dc.InvalidOperation, Exception):
+        raise RowValueError(
+            f'Incorrect value for total: \'{total}\'')
+
+
+def format_date(date):
+    """
+    Formats a value to a datetime.date object.
+    A string value is converted to a datetime.datetime object
+    and/or a datetime.datetime object is converted to a datetime.date object.
+
+    Args:
+        date (str/datetime): The purchase date value.
+
+    Returns:
+        datetime.date: Given date formatted to datetime.date.
+
+    Raises:
+        RowValueError: If given date is not a string or
+                       datetime.datetime object.
+    """
+    try:
+        if isinstance(date, str):
+            date = datetime.datetime.strptime(date, '%Y-%m-%d')
+        if isinstance(date, datetime.date):
+            return datetime.date(
+                date.year, date.month, date.day
+            )
+        else:
+            raise RowValueError
+    except Exception:
+        raise RowValueError(f'Incorrect value for date: \'{date}\'')
 
 
 def validate_row(row):
     """
-    Wrapper function for clean_row_strings and validate_row.
-    Format should be [
-                    purchase_date, store_name,
-                    total, description]
+    Validate and clean a dictionary.
 
-    :param row: Row from csv file
-    :return: Row with values cleaned and validated
-    :raises InvalidRowException if row integrity failed or value error
+    Args:
+        row (dict/ordered dict): A dictionary of purchase data.
+
+    Returns:
+        dict: A dictionary with cleaned and formatted values.
+
+    Raises:
+        InvalidRowException: If data is incorrectly formatted,
+                             or has missing/incorrect values.
     """
     try:
-        # import pdb; pdb.set_trace()
         check_row_integrity(row)
         check_required_row_values(row)
         row = clean_row_strings(row)
         row['total'] = format_total(row['total'])
         row['date'] = format_date(row['date'])
         return row
-    except (RowIntegrityError, ValueError, TypeError, Exception) as exc:
+    except (RowIntegrityError, RowValueError, Exception) as exc:
         raise InvalidRowException(str(exc))
 
 
-def compile_csv_files(csv_dir, ignore_files=[]):
+def compile_csv_files(dir_path, ignore_files=None):
     """
-    Gather all csv files and return as list, excludes any ignored files passed.
-    Assumes that the csv files directory is within root project directory.
+    Create a list of absolute file paths for csv files
+    from a directory, excluding ignored.
 
-    :param csv_dir: csv directory name
-    :param ignore_files: list of file names to ignore
+    Args:
+        dir_path (str): name or path of directory.
+        ignore_files (list): list of file paths to ignore relative to dir_path.
+
+    Returns:
+        list: Absolute paths of files inside directory.
     """
+    if ignore_files is None:
+        ignore_files = []
+
+    dir_path = os.path.abspath(dir_path)
+    ignore_files = [os.path.abspath(path) for path in ignore_files]
+
     csv_files = []
-
-    # Walk all files in csv_dir
-    for root, dirs, files in os.walk(csv_dir):
+    for root, dirs, files in os.walk(dir_path):
         for name in files:
-            if name.endswith('.csv') and name not in ignore_files:
-                # Get full path of file
-                full_path = os.path.join(root, name)
-                csv_files.append(full_path)
+            if name.endswith('.csv'):
+                # Get absolute path of file.
+                full_path = os.path.abspath(os.path.join(root, name))
 
-    return csv_files
-
-
-def get_all_csv(csv_dir=None, ignore_files=[]):
-    """
-    Gather all csv files and return as list, excludes any ignored files passed.
-    Assumes that the csv files directory is within root project directory.
-
-    :param csv_dir: csv directory name
-    :param ignore_files: list of file names to ignore
-    """
-    if not csv_dir:
-        csv_dir = CSV_DIR
-    csv_files = []
-
-    # Walk all files in csv_dir
-    for root, dirs, files in os.walk(csv_dir):
-        for name in files:
-            if name.endswith('.csv') and name not in ignore_files:
-                # Get full path of file
-                full_path = os.path.join(root, name)
-                csv_files.append(full_path)
+                # Check if it should be ignored.
+                if full_path not in ignore_files:
+                    csv_files.append(full_path)
 
     return csv_files
