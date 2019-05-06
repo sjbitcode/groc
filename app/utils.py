@@ -38,9 +38,10 @@ def check_required_row_values(row):
         RowIntegrityError: If a required value is falsey.
     """
     required_values_keys = ['date', 'store', 'total']
+
+    # Required fields that are not in row.
     not_supplied = [
         key for key in required_values_keys if not row[key]]
-
     not_supplied_str = ", ".join(not_supplied)
     not_supplied_values = ", ".join([f"\'{row[key]}\'" for key in not_supplied])
 
@@ -100,7 +101,8 @@ def format_total(total):
         )
     except (dc.InvalidOperation, Exception):
         raise RowValueError(
-            f'Incorrect value for total: \'{total}\'')
+            f'Incorrect value for total: \'{total}\'. ' +
+            f'(Format must be whole or decimal number like 10, 100.00, 1000.01).')
 
 
 def format_date(date):
@@ -129,7 +131,8 @@ def format_date(date):
         else:
             raise RowValueError
     except Exception:
-        raise RowValueError(f'Incorrect value for date: \'{date}\'')
+        raise RowValueError(f'Incorrect value for date: \'{date}\'. ' +
+                            f'(Format must be YYYY-MM-DD).')
 
 
 def validate_row(row):

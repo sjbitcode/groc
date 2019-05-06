@@ -1,25 +1,10 @@
 import copy
 import datetime
-import sqlite3
-import os
 
 import click
 from prettytable import from_db_cursor
 
-from app.connection import SQLiteConnection, PostgresConnection
-from app.settings import CSV_DIR, DB_URL
 from app.groc import Groc
-from app import exceptions
-
-# Connect to sqlite database.
-# connection = SQLiteConnection().get_connection()
-
-# Connect to postgres database.
-# pgconnection = PostgresConnection(params = {
-#   'host': 'localhost',
-#   'database': os.environ.get('POSTGRES_DB', 'postgres'),
-#   'user': os.environ.get('POSTGRES_USER', 'postgres'),
-#   'password': os.environ.get('POSTGRES_PASSWORD', 'postgres')}).get_connection()
 
 
 class MutuallyExclusiveOption(click.Option):
@@ -56,9 +41,7 @@ class MutuallyExclusiveOption(click.Option):
             )
 
         if self.name in opts.keys():
-            # import pdb; pdb.set_trace()
             # if set(self.required_with + [self.name]) != set(opts):
-
             # allows description option to be optional
             if not set(self.required_with + [self.name]).issubset(set(opts)):
                 raise click.UsageError(
@@ -110,39 +93,37 @@ def reset(dry_run):
         g.clear_db()
         click.echo('Database reset successful.')
 
+
 def check_limit(ctx, param, value):
     if value > 100:
         value = 100
     return value
 
+
 @groc_entrypoint.command('list', short_help='List purchases')
 @click.option('--limit', '-l',
-    type=int,
-    default=50,
-    show_default=True,
-    help='Number of last purchases. Maximum 100 allowed.',
-    cls=MutuallyExclusiveOption,
-    mutually_exclusive=['all'],
-    callback=check_limit
-)
+              type=int,
+              default=50,
+              show_default=True,
+              help='Number of last purchases. Maximum 100 allowed.',
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['all'],
+              callback=check_limit)
 @click.option('--month', '-m',
-    type=click.DateTime(formats=['%m']),
-    help='month as a two digit number'
-)
+              type=click.DateTime(formats=['%m']),
+              help='month as a two digit number')
 @click.option('--year', '-y',
-    type=click.DateTime(formats=['%Y']),
-    default=(datetime.date.today().strftime('%Y')),
-    show_default=True,
-    help='year as a four digit number',
-    cls=MutuallyExclusiveOption,
-    required_with=['month']
-)
+              type=click.DateTime(formats=['%Y']),
+              default=(datetime.date.today().strftime('%Y')),
+              show_default=True,
+              help='year as a four digit number',
+              cls=MutuallyExclusiveOption,
+              required_with=['month'])
 @click.option('--all', '-a', is_flag=True,
-    cls=MutuallyExclusiveOption,
-    mutually_exclusive=['limit'],
-    required_with=['month'],
-    help='list all entries'
-)
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['limit'],
+              required_with=['month'],
+              help='list all entries')
 @click.option('--verbose', is_flag=True)
 def list(limit, month, year, all, verbose):
     g = Groc()
@@ -180,8 +161,9 @@ def list(limit, month, year, all, verbose):
             output_msg = table.get_string(fields=field_names)
     else:
         output_msg = 'No purchase entries available. You should add some!\nSee groc add --help to add purchases.'
-    
+
     click.echo(output_msg)
+
 
 def format_month_year(ctx, param, value):
     if value:
@@ -191,21 +173,21 @@ def format_month_year(ctx, param, value):
             value = [datetime.datetime.strftime(y, '%Y') for y in value]
     return value
 
-@groc_entrypoint.command('breakdown', short_help='Show helpful stats for monthly purchases')
+
+@groc_entrypoint.command('breakdown',
+                         short_help='Show helpful stats for monthly purchases')
 @click.option('--month', '-m',
-    type=click.DateTime(formats=['%m']),
-    multiple=True,
-    show_default=True,
-    help='month as a two digit number',
-    callback=format_month_year
-)
+              type=click.DateTime(formats=['%m']),
+              multiple=True,
+              show_default=True,
+              help='month as a two digit number',
+              callback=format_month_year)
 @click.option('--year', '-y',
-    type=click.DateTime(formats=['%Y']),
-    multiple=True,
-    show_default=True,
-    help='year as a four digit number',
-    callback=format_month_year
-)
+              type=click.DateTime(formats=['%Y']),
+              multiple=True,
+              show_default=True,
+              help='year as a four digit number',
+              callback=format_month_year)
 @click.option('--verbose', is_flag=True)
 def breakdown(month, year, verbose):
     g = Groc()
@@ -215,7 +197,7 @@ def breakdown(month, year, verbose):
 
     if year and not month:
         month = ['0'+str(x) if len(str(x)) == 1 else str(x)
-                for x in range(1, 12)]
+                 for x in range(1, 12)]
     if not year:
         year = [datetime.date.today().strftime('%Y')]
     if not month:
@@ -243,17 +225,17 @@ def breakdown(month, year, verbose):
         output_msg = table.get_string(fields=field_names)
     else:
         output_msg = 'No purchase entries available. You should add some!\nSee groc add --help to add purchases.'
-    
+
     click.echo(output_msg)
+
 
 @groc_entrypoint.command('delete', short_help='Delete purchases')
 @click.option('--dry-run', is_flag=True)
 @click.option('--id', '-i',
-    type=int,
-    multiple=True,
-    help='Id of purchase',
-    required=True
-)
+              type=int,
+              multiple=True,
+              help='Id of purchase',
+              required=True)
 @click.option('--verbose', is_flag=True)
 def delete(dry_run, id, verbose):
     g = Groc()
@@ -274,7 +256,7 @@ def delete(dry_run, id, verbose):
         if not dry_run:
             g.delete_purchase(id)
             click.echo(f'Delete successful.')
-        
+
     else:
         ids_str = ', '.join([str(i) for i in id])
         click.echo('No purchases with id(s) {} to be deleted.'.format(ids_str))
@@ -282,77 +264,69 @@ def delete(dry_run, id, verbose):
 
 @groc_entrypoint.command('add', short_help='Add purchases')
 @click.option('--total',
-    type=float,
-    help='Dollar amount of purchase',
-    cls=MutuallyExclusiveOption,
-    mutually_exclusive=['source'],
-    required_with=['date', 'store']
+              type=float,
+              help='Dollar amount of purchase',
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['source'],
+              required_with=['date', 'store']
 )
 @click.option('--date',
-    type=click.DateTime(formats=['%Y-%m-%d']),
-    help='The date of purchase',
-    cls=MutuallyExclusiveOption,
-    mutually_exclusive=['source'],
-    required_with=['total', 'store']
-)
+              type=click.DateTime(formats=['%Y-%m-%d']),
+              help='The date of purchase',
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['source'],
+              required_with=['total', 'store'])
 @click.option('--store',
-    type=str,
-    help='Store name where purchase was made',
-    cls=MutuallyExclusiveOption,
-    mutually_exclusive=['source'],
-    required_with=['date', 'total']
-)
+              type=str,
+              help='Store name where purchase was made',
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['source'],
+              required_with=['date', 'total']          )
 @click.option('--description',
-    type=str,
-    help='Brief description of purchase',
-    cls=MutuallyExclusiveOption,
-    mutually_exclusive=['source'],
-    required_with=['date', 'total', 'store']
-)
+              type=str,
+              help='Brief description of purchase',
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['source'],
+              required_with=['date', 'total', 'store'])
 @click.option('--source',
-    type=click.Path(),
-    help='File or directory',
-    cls=MutuallyExclusiveOption,
-    mutually_exclusive=['date', 'total', 'store', 'description']
-)
-def add(date, total, store, description, source):
+              type=click.Path(),
+              help='File or directory',
+              cls=MutuallyExclusiveOption,
+              mutually_exclusive=['date', 'total', 'store', 'description'])
+@click.option('--ignore-duplicate', is_flag=True)
+def add(date, total, store, description, source, ignore_duplicate):
     """
     Add a purchase via command line, file, or directory
     """
     g = Groc()
 
     if source:
-        # Get current purchase count.
-        current_num_purchases = g.select_purchase_count()
-
-        # Add purchases from path.
-        g.add_purchase_path(source)
-
-        # Get updated purchase count and calculate difference.
-        updated_num_purchases = g.select_purchase_count()
-        count = updated_num_purchases - current_num_purchases
+        count = g.add_purchase_path(source, ignore_duplicate)
         click.echo(f'Added {count} purchase(s) successfully.')
+
     elif date:
-        g.add_purchase_manual({
+        success = g.add_purchase_manual({
             'date': date,
             'total': total,
             'store': store,
-            'description': description})
-        click.echo('Added 1 purchase successfully.')
+            'description': description}, ignore_duplicate)
+        count = 1 if success else 0
+        click.echo(f'Added {count} purchase successfully.')
+
     else:
         raise click.UsageError('''
         Missing option "--source" OR
         options "--date", "store", "--total", "description" required together.
         ''')
 
+
 def safe_entry_point():
     try:
         groc_entrypoint()
     except Exception as e:
+        # raise e
         click.secho(str(e), fg='red')
+
 
 if __name__ == '__main__':
     safe_entry_point()
-
-
-
