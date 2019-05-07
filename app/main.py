@@ -268,10 +268,11 @@ def delete(dry_run, id, verbose):
               help='Dollar amount of purchase',
               cls=MutuallyExclusiveOption,
               mutually_exclusive=['source'],
-              required_with=['date', 'store']
-)
+              required_with=['store'])
 @click.option('--date',
               type=click.DateTime(formats=['%Y-%m-%d']),
+              default=(datetime.date.today().strftime('%Y-%m-%d')),
+              show_default=True,
               help='The date of purchase',
               cls=MutuallyExclusiveOption,
               mutually_exclusive=['source'],
@@ -281,13 +282,13 @@ def delete(dry_run, id, verbose):
               help='Store name where purchase was made',
               cls=MutuallyExclusiveOption,
               mutually_exclusive=['source'],
-              required_with=['date', 'total']          )
+              required_with=['total'])
 @click.option('--description',
               type=str,
               help='Brief description of purchase',
               cls=MutuallyExclusiveOption,
               mutually_exclusive=['source'],
-              required_with=['date', 'total', 'store'])
+              required_with=['total', 'store'])
 @click.option('--source',
               type=click.Path(),
               help='File or directory',
@@ -304,7 +305,7 @@ def add(date, total, store, description, source, ignore_duplicate):
         count = g.add_purchase_path(source, ignore_duplicate)
         click.echo(f'Added {count} purchase(s) successfully.')
 
-    elif date:
+    elif store:
         success = g.add_purchase_manual({
             'date': date,
             'total': total,
