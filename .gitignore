@@ -128,8 +128,7 @@ dmypy.json
 *.sqlite
 
 # Bills directory with csv files
-bills/*
-!bills/.gitkeep
+bills/
 
 # Misc
 misc/
