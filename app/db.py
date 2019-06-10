@@ -40,6 +40,8 @@ END;"""
 
 sqlite_list_tables = """SELECT name FROM sqlite_master WHERE type='table';"""
 
+sqlite_count_tables = """SELECT COUNT(*) FROM sqlite_master WHERE type='table';"""
+
 sqlite_delete_purchase_by_id = """DELETE FROM purchase WHERE id IN (%s);"""
 
 sqlite_select_purchase_by_id = """SELECT
