@@ -5,38 +5,22 @@ from app import db, exceptions, utils
 
 
 class Groc:
+    def _get_connection(self, db_url):
+        try:
+            self.connection = db.create_connection(db_url)
+        except (sqlite3.OperationalError, sqlite3.DatabaseError):
+            raise exceptions.DatabaseError('Error connecting to database')
+
     def __init__(self):
         self.groc_dir = os.path.expanduser('~/.groc/')
         self.db_name = 'groc.db'
         self.db_url = os.path.join(self.groc_dir, self.db_name)
-
-    @staticmethod
-    def _get_connection(db_url):
-        try:
-            # Register sqlite converters
-            sqlite3.register_converter("purchase_date",
-                                       db.datetime_worded_full)
-            sqlite3.register_converter("purchase_date_abbreviated",
-                                       db.datetime_worded_abbreviated)
-            sqlite3.register_converter("purchase_month",
-                                       db.datetime_month_full)
-            sqlite3.register_converter(
-                "purchase_month_abbreviated", db.datetime_month_abbreviated)
-            sqlite3.register_converter(
-                "purchase_month_year", db.datetime_month_year_numeric)
-            sqlite3.register_converter("total_money", db.total_to_float)
-
-            connection = sqlite3.connect(
-                db_url, detect_types=sqlite3.PARSE_COLNAMES)
-            connection.execute('PRAGMA foreign_keys = ON;')
-            connection.row_factory = sqlite3.Row
-            return connection
-        except (sqlite3.OperationalError, sqlite3.DatabaseError):
-            raise exceptions.DatabaseError('Error connecting to database')
+        # Set instance db connection
+        self._get_connection(self.db_url)
 
     def _create_and_setup_db(self):
         """Create database and tables."""
-        db.setup_db(self._get_connection(self.db_url))
+        db.setup_db(self.connection)
 
     def groc_dir_exists(self):
         return os.path.exists(self.groc_dir)
@@ -65,28 +49,29 @@ class Groc:
 
     def clear_db(self):
         """ Delete all data from tables. """
-        db.clear_db(self._get_connection(self.db_url))
+        db.clear_db(self.connection)
 
     def select_by_id(self, ids):
-        return db.select_by_id(self._get_connection(self.db_url), ids)
+        return db.select_by_id(self.connection, ids)
 
-    def select_count_by_id(self, ids):
-        return db.select_count_by_id(self._get_connection(self.db_url), ids)
+    def select_purchase_ids(self, ids):
+        return db.select_count_by_id(self.connection, ids)
 
+    # Not used in CLI
     def select_ids_by_month(self, months):
         return db.select_ids_by_month(
-            self._get_connection(self.db_url), months)
+            self.connection, months)
 
     def breakdown(self, month, year):
         return db.select_count_total_per_month(
-            self._get_connection(self.db_url), month, year)
+            self.connection, month, year)
 
-    def select_purchase_count_per_month(self):
-        return db.select_purchase_count_per_month(
-            self._get_connection(self.db_url))
+    # def select_purchase_count_per_month(self):
+    #     return db.select_purchase_count_per_month(
+    #         self.connection)
 
     def select_purchase_count(self):
-        cur = db.select_purchase_count(self._get_connection(self.db_url))
+        cur = db.select_purchase_count(self.connection)
         # indexing with Row
         return cur.fetchone()['purchase_count']
 
@@ -96,16 +81,16 @@ class Groc:
 
         :param ids: A list of integers representing ids of purchase rows.
         """
-        db.delete_from_db(self._get_connection(self.db_url), ids)
+        db.delete_from_db(self.connection, ids)
 
     def list_purchases_date(self, month, year):
-        return db.get_purchases_date(self._get_connection(self.db_url), month, year)
+        return db.get_purchases_date(self.connection, month, year)
 
     def list_purchases_limit(self, limit=50):
-        return db.get_purchases_limit(self._get_connection(self.db_url), limit)
+        return db.get_purchases_limit(self.connection, limit)
 
     def list_purchases_date_limit(self, month, year, limit=50):
-        return db.get_purchases_date_limit(self._get_connection(self.db_url), month, year, limit)
+        return db.get_purchases_date_limit(self.connection, month, year, limit)
 
     def add_purchase_manual(self, row, ignore_duplicate):
         """
@@ -114,7 +99,7 @@ class Groc:
         :param row: A dictionary of purchase data.
         """
         # this raises an exception if wrong
-        return db.insert_from_commandline(self._get_connection(self.db_url),
+        return db.insert_from_commandline(self.connection,
                                           row, ignore_duplicate)
 
     def add_purchase_path(self, path, ignore_duplicate):
@@ -135,5 +120,5 @@ class Groc:
             raise Exception(f'{path} could not be found!')
 
         # this raises an exception if wrong
-        return db.insert_from_csv_dict(self._get_connection(self.db_url),
+        return db.insert_from_csv_dict(self.connection,
                                        csv_files, ignore_duplicate)
