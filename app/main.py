@@ -239,7 +239,7 @@ def breakdown(month, year, verbose):
 @click.option('--verbose', is_flag=True)
 def delete(dry_run, id, verbose):
     g = Groc()
-    purchase_ids_exist = g.select_count_by_id(id).fetchall()
+    purchase_ids_exist = g.select_purchase_ids(id).fetchall()
 
     if purchase_ids_exist:
         if verbose:
@@ -325,8 +325,8 @@ def safe_entry_point():
     try:
         groc_entrypoint()
     except Exception as e:
-        # raise e
-        click.secho(str(e), fg='red')
+        raise e
+        # click.secho(str(e), fg='red')
 
 
 if __name__ == '__main__':
