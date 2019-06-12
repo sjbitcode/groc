@@ -54,7 +54,7 @@ FROM purchase p
 INNER JOIN store s ON p.store_id = s.id
 WHERE p.id IN (%s);"""
 
-sqlite_select_count_purchase_by_id = """SELECT
+sqlite_select_purchase_ids = """SELECT
     id
 FROM purchase
 WHERE id IN (%s);"""
@@ -102,13 +102,13 @@ WHERE
     AND strftime ('%Y', date) = ?
 ORDER BY date DESC;"""
 
-sqlite_select_purchase_count_per_month = """SELECT
-    strftime ('%%m',p.purchase_date) AS num_month,
-    p.purchase_date AS "month [purchase_month]",
-    COUNT(p.id) AS number_of_purchases
-FROM purchase p
-GROUP BY num_month
-ORDER BY num_month DESC;"""
+# sqlite_select_purchase_count_per_month = """SELECT
+#     strftime ('%%m',p.purchase_date) AS num_month,
+#     p.purchase_date AS "month [purchase_month]",
+#     COUNT(p.id) AS number_of_purchases
+# FROM purchase p
+# GROUP BY num_month
+# ORDER BY num_month DESC;"""
 
 sqlite_select_purchase_count_and_total_per_month = """SELECT
     strftime ('%%m',p.purchase_date) AS num_month,
@@ -197,6 +197,30 @@ def execute_sql(conn, sql_statement_string, values=()):
             raise exceptions.DatabaseError('Something went wrong with the database!')
 
 
+def create_connection(cnxn_str):
+    # Register sqlite converters
+    sqlite3.register_converter("purchase_date",
+                               datetime_worded_full)
+    sqlite3.register_converter("purchase_date_abbreviated",
+                               datetime_worded_abbreviated)
+    sqlite3.register_converter("purchase_month",
+                               datetime_month_full)
+    sqlite3.register_converter(
+        "purchase_month_abbreviated", datetime_month_abbreviated)
+    sqlite3.register_converter(
+        "purchase_month_year", datetime_month_year_numeric)
+    sqlite3.register_converter("total_money", total_to_float)
+
+    connection = sqlite3.connect(
+        cnxn_str, detect_types=sqlite3.PARSE_COLNAMES)
+
+    # Set pragms and row_factory
+    connection.execute('PRAGMA foreign_keys = ON;')
+    connection.row_factory = sqlite3.Row
+
+    return connection
+
+
 def setup_db(conn):
     """
     Set up the sqlite database with store and puchase tables.
@@ -210,6 +234,7 @@ def setup_db(conn):
         execute_sql(conn, sqlite_insert_purchase_trigger)
 
 
+# not used in Groc class
 def list_tables(conn):
     """
     Get list of all tables in the sqlite database.
@@ -225,49 +250,44 @@ def list_tables(conn):
 
 
 def select_by_id(conn, ids):
-    with conn:
-        sql_select = multiple_parameter_substitution(
-            sqlite_select_purchase_by_id,
-            [len(ids)]
-        )
-        return execute_sql(conn, sql_select, values=ids)
+    sql_select = multiple_parameter_substitution(
+        sqlite_select_purchase_by_id,
+        [len(ids)]
+    )
+    return execute_sql(conn, sql_select, values=ids)
 
 
-def select_count_by_id(conn, ids):
-    with conn:
-        sql_select = multiple_parameter_substitution(
-            sqlite_select_count_purchase_by_id,
-            [len(ids)]
-        )
-        return execute_sql(conn, sql_select, values=ids)
+def select_purchase_ids(conn, ids):
+    sql_select = multiple_parameter_substitution(
+        sqlite_select_purchase_ids,
+        [len(ids)]
+    )
+    return execute_sql(conn, sql_select, values=ids)
 
 
 def select_ids_by_month(conn, months):
-    with conn:
-        sql_select = multiple_parameter_substitution(
-            sqlite_select_count_purchase_by_month,
-            len(months)
-        )
-        return execute_sql(conn, sql_select, values=months)
+    sql_select = multiple_parameter_substitution(
+        sqlite_select_count_purchase_by_month,
+        [len(months)]
+    )
+    return execute_sql(conn, sql_select, values=months)
 
 
-def select_purchase_count_per_month(conn):
-    with conn:
-        return execute_sql(conn, sqlite_select_purchase_count_per_month)
+# def select_purchase_count_per_month(conn):
+#     return execute_sql(conn, sqlite_select_purchase_count_per_month)
 
 
 def select_purchase_count(conn):
-    with conn:
-        return execute_sql(conn, sql_count_purchase_table)
+    # with conn:
+    return execute_sql(conn, sql_count_purchase_table)
 
 
 def select_count_total_per_month(conn, months, years):
-    with conn:
-        sql_select = multiple_parameter_substitution(
-            sqlite_select_purchase_count_and_total_per_month,
-            [len(months), len(years)]
-        )
-        return execute_sql(conn, sql_select, values=tuple(months + years))
+    sql_select = multiple_parameter_substitution(
+        sqlite_select_purchase_count_and_total_per_month,
+        [len(months), len(years)]
+    )
+    return execute_sql(conn, sql_select, values=tuple(months + years))
 
 
 def delete_from_db(conn, ids):
@@ -278,12 +298,12 @@ def delete_from_db(conn, ids):
     :param conn: Connection object
     :returns: None
     """
-    with conn:
-        sql_delete = multiple_parameter_substitution(
-            sqlite_delete_purchase_by_id,
-            [len(ids)]
-        )
-        return execute_sql(conn, sql_delete, values=ids)
+    # with conn:
+    sql_delete = multiple_parameter_substitution(
+        sqlite_delete_purchase_by_id,
+        [len(ids)]
+    )
+    return execute_sql(conn, sql_delete, values=ids)
 
 
 def get_purchases_date_limit(conn, month, year, limit):
@@ -294,18 +314,18 @@ def get_purchases_date_limit(conn, month, year, limit):
     :param limit: Integer value for amount of rows to return.
     :returns: List of results.
     """
-    with conn:
-        return execute_sql(conn, sqlite_list_purchase_date_limit, values=(month, year, limit,))
+    # with conn:
+    return execute_sql(conn, sqlite_list_purchase_date_limit, values=(month, year, limit,))
 
 
 def get_purchases_date(conn, month, year):
-    with conn:
-        return execute_sql(conn, sqlite_list_purchase_date, values=(month, year,))
+    # with conn:
+    return execute_sql(conn, sqlite_list_purchase_date, values=(month, year,))
 
 
 def get_purchases_limit(conn, limit):
-    with conn:
-        return execute_sql(conn, sqlite_list_purchase_limit, values=(limit,))
+    # with conn:
+    return execute_sql(conn, sqlite_list_purchase_limit, values=(limit,))
 
 
 def clear_db(conn):
@@ -338,7 +358,7 @@ def multiple_parameter_substitution(sql_statement_string, lengths):
     Example:
     ids = ["1", "2", "3"]
     cur.execute(
-        'SELECT * FROM person WHERE id IN (%s)' % ','.join('?'*len(ids)), 
+        'SELECT * FROM person WHERE id IN (%s)' % ','.join('?'*len(ids)),
         ids
     )
 
