@@ -5,7 +5,7 @@ import sqlite3
 from app import exceptions, utils
 
 
-# SQLite specific statements
+""" SQLite specific statements """
 sqlite_create_store_table = """CREATE TABLE IF NOT EXISTS store (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(50) NOT NULL UNIQUE );"""
@@ -59,7 +59,7 @@ sqlite_select_purchase_ids = """SELECT
 FROM purchase
 WHERE id IN (%s);"""
 
-sqlite_select_count_purchase_by_month = """SELECT
+sqlite_select_purchase_ids_by_month = """SELECT
     id
 FROM purchase
 WHERE strftime('%%m', purchase_date) IN (%s);"""
@@ -102,14 +102,6 @@ WHERE
     AND strftime ('%Y', date) = ?
 ORDER BY date DESC;"""
 
-# sqlite_select_purchase_count_per_month = """SELECT
-#     strftime ('%%m',p.purchase_date) AS num_month,
-#     p.purchase_date AS "month [purchase_month]",
-#     COUNT(p.id) AS number_of_purchases
-# FROM purchase p
-# GROUP BY num_month
-# ORDER BY num_month DESC;"""
-
 sqlite_select_purchase_count_and_total_per_month = """SELECT
     strftime ('%%m',p.purchase_date) AS num_month,
     strftime('%%Y', p.purchase_date) AS year,
@@ -143,7 +135,9 @@ sql_delete_store_table = """DROP TABLE store;"""
 sql_delete_purchase_table = """DROP TABLE purchase;"""
 
 
-# SQLite converter methods
+""" SQLite converter methods """
+
+
 def datetime_worded_abbreviated(bytes_string):
     s = str(bytes_string, 'utf-8')
     date = datetime.datetime.strptime(s, '%Y-%m-%d')
@@ -179,25 +173,42 @@ def total_to_float(bytes_string):
     return f'${s:,.2f}'
 
 
-# Useful db methods
-def execute_sql(conn, sql_statement_string, values=()):
+""" Db methods """
+
+
+def execute_sql(conn, sql_stmt, values=()):
     """
     Execute a sql statement via connection cursor.
 
-    :param conn: Connection object
-    :param sql_statement_string: a SQL statement
-    :param values: list of values to be execute with sql statement
-    :returns: None
+    Args:
+        conn: SQLite connection object.
+        sql_stmt (str): a SQL statement.
+        values (list): values to use in sql statement.
+
+    Returns:
+        cursor: SQLite cursor object.
+
+    Raises:
+        exceptions.DatabaseError.
     """
     with conn:
         try:
             cursor = conn.cursor()
-            return cursor.execute(sql_statement_string, values)
+            return cursor.execute(sql_stmt, values)
         except sqlite3.DatabaseError:
             raise exceptions.DatabaseError('Something went wrong with the database!')
 
 
 def create_connection(cnxn_str):
+    """
+    Create and return a SQLite connection.
+
+    Args:
+        cnxn_str (str): path to create db.
+
+    Returns:
+        connection: SQLite connection object.
+    """
     # Register sqlite converters
     sqlite3.register_converter("purchase_date",
                                datetime_worded_full)
@@ -225,8 +236,10 @@ def setup_db(conn):
     """
     Set up the sqlite database with store and puchase tables.
 
-    :param conn: Connection object
-    :returns: None
+    Args:
+        conn: SQLite connection object.
+
+    Returns: None.
     """
     with conn:
         execute_sql(conn, sqlite_create_store_table)
@@ -234,22 +247,17 @@ def setup_db(conn):
         execute_sql(conn, sqlite_insert_purchase_trigger)
 
 
-# not used in Groc class
-def list_tables(conn):
-    """
-    Get list of all tables in the sqlite database.
-
-    :param conn: Connection object
-    :returns: Comma separated list of all tables in database
-    :rtype: list
-    """
-    with conn:
-        cursor = conn.cursor()
-        tables = cursor.execute(sqlite_list_tables).fetchall()
-        return ', '.join(t[0] for t in tables)
-
-
 def select_by_id(conn, ids):
+    """
+    Select purchase details for multiple ids.
+
+    Args:
+        conn: SQLite connection object.
+        ids (list/tuple): purchase ids.
+
+    Returns:
+        A SQLite cursor object (return value of execute_sql).
+    """
     sql_select = multiple_parameter_substitution(
         sqlite_select_purchase_by_id,
         [len(ids)]
@@ -258,6 +266,16 @@ def select_by_id(conn, ids):
 
 
 def select_purchase_ids(conn, ids):
+    """
+    Select purchase ids where for multiple ids.
+
+    Args:
+        conn: SQLite connection object.
+        ids (list/tuple): purchase ids.
+
+    Returns:
+        A SQLite cursor object (return value of execute_sql).
+    """
     sql_select = multiple_parameter_substitution(
         sqlite_select_purchase_ids,
         [len(ids)]
@@ -266,23 +284,48 @@ def select_purchase_ids(conn, ids):
 
 
 def select_ids_by_month(conn, months):
+    """
+    Select purchase ids where for given months.
+
+    Args:
+        conn: SQLite connection object.
+        months (list/tuple): two digit month strings.
+
+    Returns:
+        A SQLite cursor object (return value of execute_sql).
+    """
     sql_select = multiple_parameter_substitution(
-        sqlite_select_count_purchase_by_month,
+        sqlite_select_purchase_ids_by_month,
         [len(months)]
     )
     return execute_sql(conn, sql_select, values=months)
 
 
-# def select_purchase_count_per_month(conn):
-#     return execute_sql(conn, sqlite_select_purchase_count_per_month)
-
-
 def select_purchase_count(conn):
-    # with conn:
+    """
+    Get total number of purchases.
+
+    Args:
+        conn: SQLite connection object.
+
+    Returns:
+        A SQLite cursor object (return value of execute_sql).
+    """
     return execute_sql(conn, sql_count_purchase_table)
 
 
 def select_count_total_per_month(conn, months, years):
+    """
+    Select purchase stats grouped by month and years.
+
+    Args:
+        conn: SQLite connection object.
+        months (list/tuple): two digit month strings.
+        years (list/tuple): four digit year strings.
+
+    Returns:
+        A SQLite cursor object (return value of execute_sql).
+    """
     sql_select = multiple_parameter_substitution(
         sqlite_select_purchase_count_and_total_per_month,
         [len(months), len(years)]
@@ -295,10 +338,13 @@ def delete_from_db(conn, ids):
     Deletes rows from the purchase table given
     a list of purchase ids.
 
-    :param conn: Connection object
-    :returns: None
+    Args:
+        conn: SQLite connection object.
+        ids (list/tuple): purchase ids.
+
+    Returns:
+        A SQLite cursor object (return value of execute_sql).
     """
-    # with conn:
     sql_delete = multiple_parameter_substitution(
         sqlite_delete_purchase_by_id,
         [len(ids)]
@@ -310,21 +356,45 @@ def get_purchases_date_limit(conn, month, year, limit):
     """
     Gets rows from the purchase table limited by amount specified.
 
-    :param conn: Connection object.
-    :param limit: Integer value for amount of rows to return.
-    :returns: List of results.
+    Args:
+        conn: SQLite connection object.
+        month (str): two digit month string.
+        year (str): four digit year string.
+        limit (int): Integer value for purchase limit.
+
+    Returns:
+        A SQLite cursor object (return value of execute_sql).
     """
-    # with conn:
-    return execute_sql(conn, sqlite_list_purchase_date_limit, values=(month, year, limit,))
+    return execute_sql(conn, sqlite_list_purchase_date_limit,
+                       values=(month, year, limit,))
 
 
 def get_purchases_date(conn, month, year):
-    # with conn:
+    """
+    Gets all purchases for a month and year
+
+    Args:
+        conn: SQLite connection object.
+        month (str): two digit month string.
+        year (str): four digit year string.
+
+    Returns:
+        A SQLite cursor object (return value of execute_sql).
+    """
     return execute_sql(conn, sqlite_list_purchase_date, values=(month, year,))
 
 
 def get_purchases_limit(conn, limit):
-    # with conn:
+    """
+    Gets limited amount of purchases.
+
+    Args:
+        conn: SQLite connection object.
+        limit (int): limit (int): Integer value for purchase limit.
+
+    Returns:
+        A SQLite cursor object (return value of execute_sql).
+    """
     return execute_sql(conn, sqlite_list_purchase_limit, values=(limit,))
 
 
@@ -332,12 +402,17 @@ def clear_db(conn):
     """
     Delete all data from the store and purchase tables.
 
-    :param conn: Connection object
-    :return:
+    Args:
+        conn: SQLite connection object.
+
+    Returns:
+        A SQLite cursor object.
+
+    Raises:
+        exceptions.DatabaseError
+
     """
     with conn:
-        # execute_sql(conn, sql_clear_purchase_table)
-        # execute_sql(conn, sql_clear_store_table)
         try:
             cursor = conn.cursor()
             return cursor.executescript('{} {}'.format(
@@ -348,7 +423,7 @@ def clear_db(conn):
             raise exceptions.DatabaseError(str(e))
 
 
-def multiple_parameter_substitution(sql_statement_string, lengths):
+def multiple_parameter_substitution(sql_stmt, lengths):
     """
     Parameterize a sqlite IN statement with correct number
     of '?' for arguments passed in and returns the sql
@@ -356,34 +431,46 @@ def multiple_parameter_substitution(sql_statement_string, lengths):
 
     source: https://stackoverflow.com/questions/1309989/parameter-substitution-for-a-sqlite-in-clause
     Example:
-    ids = ["1", "2", "3"]
+    ids = [1, 2, 3]
     cur.execute(
-        'SELECT * FROM person WHERE id IN (%s)' % ','.join('?'*len(ids)),
-        ids
+        'SELECT * FROM person WHERE id IN (%s)' % ','.join('?'*len(ids)), ids
     )
+    'SELECT * FROM person WHERE id IN (?, ?, ?)'
 
-    :param sql_statement_string: A SQLite query string
-    :param length: Integer to generate '?' placeholder
-    :param lengths: Array of integer values to generate '?' placeholder
-    :return: Sql statement string with string placeholders
+    The code to generate placements has been modified to accept multiple
+    lengths to generate different groups of string placements.
+
+    Example:
+    sql_stmt = 'SELECT * FROM person WHERE id IN (%s) AND age IN (%s)'
+    lengths = [3, 2]
+    multiple_parameter_substitution(sql_stmt, lengths) returns
+        'SELECT * FROM person WHERE id IN (?, ?, ?) AND age IN (?, ?)'
+
+    Args:
+        sql_stmt (str): A SQL statement where string values denoted with %s
+        lengths (list/tuple): Integers to determine number of ?'s per group
+
+    Returns:
+        str: Sql statement string with string placeholders
     """
     string_placements = tuple([','.join('?'*length) for length in lengths])
-    return sql_statement_string % string_placements
-    # return sql_statement_string % ','.join('?'*length)
+    return sql_stmt % string_placements
 
 
-def insert_csv_row_sqlite(cursor, row):
+def insert_row_sqlite(cursor, row):
     """
-    Insert store and purchase data from a
-    csv row into a SQLite db.
+    Insert purchase data from into SQLite db.
 
-    :param cursor: A SQLite cursor object
-    :param row: A csv row containing data about a purchase.
-                Format should be [
-                    purchase_date, store_name,
-                    total, description
-                ]
-    :return:
+    Args:
+        cursor: A SQLite cursor object.
+        row (dict): A dictionary with keys (date, store, total, description).
+
+    Returns: None
+
+    Raises:
+        exceptions.DatabaseInsertError: if required value missing or some other
+                                        SQLite exception.
+        exceptions.DuplicateRow: if attempting to insert a duplicate purchase.
     """
     purchase_date = row['date']
     store = row['store']
@@ -409,21 +496,65 @@ def insert_csv_row_sqlite(cursor, row):
         exc = exceptions.DatabaseInsertError
         msg = 'Error saving purchase to database.'
 
-        if 'UNIQUE constraint' or 'Purchase already exists' in e.__str__():
+        if (('UNIQUE constraint' in e.__str__()) or
+           ('Purchase entry already exists' in e.__str__())):
             exc = exceptions.DuplicateRow
             msg = 'Duplicate purchase detected.'
-        elif 'NOT NULL constraint' in e.__str__():
+
+        if 'NOT NULL constraint' in e.__str__():
             msg = 'Received incorrect value for required field(s).'
 
         raise exc(msg)
 
 
-def insert_from_commandline(conn, row, ignore_duplicate=True):
+def open_files(file_paths):
+    """
+    A generator function that opens and yields files
+    from a list of file paths.
+
+    Args:
+        file_paths (list): File path strings.
+
+    Yields:
+        File object.
+
+    Raises:
+        This gets called in function that uses the generator object.
+
+        FileNotFoundError: if file not found.
+        Exception: if another error happens while opening file.
+
+    """
+    for file in file_paths:
+        try:
+            with open(file, mode='r', newline='') as csv_file:
+                yield csv_file
+        except (FileNotFoundError, Exception):
+            raise exceptions.GrocException(f'Error reading file: {file}')
+
+
+def validate_insert_row(conn, row, ignore_duplicate=False):
+    """
+    Adds a single purchase to database.
+
+    Args:
+        conn: A SQLite connection object.
+        row (dict): Dictionary with purchase details
+        ignore_duplicate (bool): Flag to indicate whether
+            to ignore exceptions thrown when a duplicate
+            purchase entered. Default is False.
+
+    Returns:
+        bool: True if successful
+
+    Raises:
+        exceptions.DuplicateRow: if duplicate row detected.
+    """
     with conn:
         cursor = conn.cursor()
         try:
             row = utils.validate_row(row)
-            insert_csv_row_sqlite(cursor, row)
+            insert_row_sqlite(cursor, row)
             return True
 
         except exceptions.DuplicateRow:
@@ -431,29 +562,35 @@ def insert_from_commandline(conn, row, ignore_duplicate=True):
                 raise
 
 
-def insert_from_csv_dict(conn, file_path, ignore_duplicate=False):
-    """ Insert contents from csv using DictReader """
+def insert_from_csv_dict(conn, file_paths, ignore_duplicate=False):
+    """
+    Read contents of a csv file and insert purchase data to db.
+
+    Args:
+        conn: A SQLite connection object.
+        file_paths (list): file path strings
+        ignore_duplcate (bool): Flag to indicate whether
+            to ignore exceptions thrown when a duplicate
+            purchase entered. Default is False.
+
+    Returns:
+        int: Count of how many purchases were added.
+
+    Raises:
+        Any exceptions to opening the file will be thrown here.
+        FileNotFoundError: if file not found.
+        Exception: if another error happens while opening file.
+    """
+    files = open_files(file_paths)
     count = 0
-    for file in file_path:
-        try:
-            with open(file, mode='r', newline='') as csv_file:
-                dict_reader = csv.DictReader(csv_file)
-                dict_reader.fieldnames = [name.lower()
-                                          for name in dict_reader.fieldnames]
 
-                with conn:
-                    cursor = conn.cursor()
+    for file in files:
+        dict_reader = csv.DictReader(file)
+        dict_reader.fieldnames = [name.lower()
+                                  for name in dict_reader.fieldnames]
 
-                    for row in dict_reader:
-                        try:
-                            row = utils.validate_row(row)
-                            insert_csv_row_sqlite(cursor, row)
-                            count += 1
+        for row in dict_reader:
+            validate_insert_row(conn, row, ignore_duplicate)
+            count += 1
 
-                        except exceptions.DuplicateRow:
-                            if ignore_duplicate:
-                                continue
-                            raise
-        except TypeError:
-            raise exceptions.GrocException(f'Error reading file: {file}')
     return count

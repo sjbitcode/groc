@@ -6,6 +6,16 @@ from app import db, exceptions, utils
 
 class Groc:
     def _get_connection(self, db_url):
+        """
+        Sets instance's connection attribute
+
+        Args:
+            db_url (str): absolute url of db
+
+        Raises:
+            exceptions.DatabaseError: Any error connecting to db
+
+        """
         try:
             self.connection = db.create_connection(db_url)
         except (sqlite3.OperationalError, sqlite3.DatabaseError):
@@ -19,20 +29,27 @@ class Groc:
         self._get_connection(self.db_url)
 
     def _create_and_setup_db(self):
-        """Create database and tables."""
+        """ Create database and tables. """
         db.setup_db(self.connection)
 
     def groc_dir_exists(self):
-        return os.path.exists(self.groc_dir)
+        """
+        Check if groc directory exists in user's home directory.
 
-    def groc_db_exists(self):
-        return os.path.exists(self.db_url)
+        Returns:
+            True if successful, False otherwise.
+        """
+        return os.path.exists(self.groc_dir)
 
     def init_groc(self):
         """
         Initializes .groc directory and creates the database.
 
-        :raises DatabaseError if database exists
+        Creates the groc directory if it doesn't exist.
+        Raises an exception if the db exists. If not, creates the db.
+
+        Raises:
+            exceptions.DatabaseError: If database exists.
         """
 
         # If ~/.groc exists and is a directory
@@ -52,61 +69,146 @@ class Groc:
         db.clear_db(self.connection)
 
     def select_by_id(self, ids):
+        """
+        Select purchases by ids.
+
+        Args:
+            ids (list/tuple): purchase ids.
+
+        Returns:
+            A SQLite cursor object.
+        """
         return db.select_by_id(self.connection, ids)
 
     def select_purchase_ids(self, ids):
-        return db.select_count_by_id(self.connection, ids)
+        """
+        Select purchase ids only by given ids.
+        Used for checking existence of purchases.
 
-    # Not used in CLI
-    def select_ids_by_month(self, months):
-        return db.select_ids_by_month(
-            self.connection, months)
+        Args:
+            ids (list/tuple): purchase ids.
+
+        Returns:
+            A SQLite cursor object.
+        """
+        return db.select_purchase_ids(self.connection, ids)
 
     def breakdown(self, month, year):
+        """
+        Get purchase stats grouped by month and year.
+        Purchase stats: year, month, sum, purchase count,
+                        min purchase amount, max purchase amount,
+                        average purchase amount,
+                        distinct store count.
+
+        Args:
+            month (str): Two digit month.
+            year (str): Four digit month.
+
+        Returns:
+            A SQLite cursor object.
+        """
         return db.select_count_total_per_month(
             self.connection, month, year)
 
-    # def select_purchase_count_per_month(self):
-    #     return db.select_purchase_count_per_month(
-    #         self.connection)
-
     def select_purchase_count(self):
+        """
+        Get total number of purchases.
+
+        Returns:
+            int: total number of purchases.
+        """
         cur = db.select_purchase_count(self.connection)
-        # indexing with Row
+        # indexing with SQLite Row
         return cur.fetchone()['purchase_count']
 
     def delete_purchase(self, ids):
         """
         Delete purchases by id.
 
-        :param ids: A list of integers representing ids of purchase rows.
+        Args:
+            ids (list/tuple): purchase ids.
         """
         db.delete_from_db(self.connection, ids)
 
     def list_purchases_date(self, month, year):
+        """
+        Get all purchases for a month/year.
+
+        Args:
+            month (str): Two digit month.
+            year (str): Four digit month.
+
+        Returns:
+            A SQLite cursor object.
+        """
         return db.get_purchases_date(self.connection, month, year)
 
     def list_purchases_limit(self, limit=50):
+        """
+        Get latest purchases limited by limit amount.
+
+        Args:
+            limit (int): limit amount.
+
+        Returns:
+            A SQLite cursor object.
+        """
         return db.get_purchases_limit(self.connection, limit)
 
     def list_purchases_date_limit(self, month, year, limit=50):
+        """
+        Get purchases for a month/year limited by limit amount.
+
+        Args:
+            month (str): Two digit month.
+            year (str): Four digit month.
+            limit (int): limit amount.
+
+        Returns:
+            A SQLite cursor object.
+        """
         return db.get_purchases_date_limit(self.connection, month, year, limit)
 
     def add_purchase_manual(self, row, ignore_duplicate):
         """
-        Add a single purchase.
+        Add a single purchase. If the data is invalid,
+        an exception will be thrown from the db module.
 
-        :param row: A dictionary of purchase data.
+        Args:
+            row (dict): A dictionary of purchase data.
+                        Keys should be date, total, store, description.
+            ignore_duplicate (bool): Flag to ignore exceptions thrown
+                                     for duplicate purchases.
+
+        Returns:
+            True if successful.
+
+        Raises:
+            exceptions.DuplicateRow: if purchase is duplicate.
+            exceptions.DatabaseInsertError: if data invalid.
         """
-        # this raises an exception if wrong
-        return db.insert_from_commandline(self.connection,
-                                          row, ignore_duplicate)
+        return db.validate_insert_row(self.connection,
+                                      row, ignore_duplicate)
 
     def add_purchase_path(self, path, ignore_duplicate):
         """
         Add a purchase via file or directory.
+        If path is directory, compile all csv files in a list.
+        If path is a file, store path in a list.
 
-        :param path: A string path to file or directory.
+        Args:
+            path (str): A path to file or directory.
+            ignore_duplicate (bool): Flag to ignore exceptions thrown
+                                     for duplicate purchases.
+
+        Returns:
+            int: count of how many purchases added.
+
+        Raises:
+            Exception: if path could not be found.
+            exceptions.DuplicateRow: if purchase is duplicate.
+            exceptions.DatabaseInsertError: if data invalid.
         """
         path = os.path.abspath(os.path.expanduser(path))
 
@@ -119,6 +221,5 @@ class Groc:
         else:
             raise Exception(f'{path} could not be found!')
 
-        # this raises an exception if wrong
         return db.insert_from_csv_dict(self.connection,
                                        csv_files, ignore_duplicate)

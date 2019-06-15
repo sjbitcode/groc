@@ -1,4 +1,4 @@
-import sqlite3
+# import sqlite3
 import textwrap
 
 import pytest
@@ -25,9 +25,59 @@ def create_csvs(tmp_path):
     return (csv_dir, [file1, file2, file3])
 
 
+@pytest.fixture
+def create_purchase_csvs(tmpdir):
+    jan_purchases = tmpdir.join('jan_2019.csv')
+    feb_purchases = tmpdir.join('feb_2019.csv')
+
+    fieldnames = "Date,Store,Total,Description"
+    jan_entries = [
+        "2019-01-01,Store Foo,20.00,fruits",
+        "2019-01-03,Store Bar,25.00,bars"
+    ]
+    jan_purchases.write(f"{fieldnames}\n{jan_entries[0]}\n{jan_entries[1]}")
+
+    feb_entries = [
+        "2019-02-04,Store Baz,12.00,milk",
+        "2019-02-04,Store Foo,30.00,eggs"
+    ]
+    feb_purchases.write(f"{fieldnames}\n{feb_entries[0]}\n{feb_entries[1]}")
+
+    return [str(jan_purchases), str(feb_purchases)]
+
+
+@pytest.fixture
+def create_invalid_purchase_csvs(tmpdir):
+    jan_purchases = tmpdir.join('jan_2019_2.csv')
+    feb_purchases = tmpdir.join('feb_2019_2.csv')
+
+    fieldnames = "Date,Store,Total,Description"
+    jan_entries = [
+        "2019-01-01,Store Foo,20.00,fruits",
+        "2019-01-03,Store Bar,25.00,bars",
+        "2019-01-04,Store Foo Bar,23.00,apples"
+    ]
+    jan_purchases.write(f"{fieldnames}\n{jan_entries[0]}\n{jan_entries[1]}")
+
+    feb_entries = [
+        "2019-02-04,Store Baz,12.00,milk",
+        "2019-02-04,Store Foo,,eggs"
+    ]
+    feb_purchases.write(f"{fieldnames}\n{feb_entries[0]}\n{feb_entries[1]}")
+
+    return [str(jan_purchases), str(feb_purchases)]
+
+
+@pytest.fixture
+def date_bytes():
+    # Fixed date string to bytes
+    return '2019-01-01'.encode('utf-8')
+
+
 @pytest.fixture(scope='module')
 def connection():
     conn = db.create_connection(':memory:')
+    db.setup_db(conn)
     yield conn
     conn.close()
 
@@ -78,7 +128,10 @@ def stores_and_purchases(cursor):
     cursor.executemany(sql_stmt_purchases, purchases)
 
 
-""" For db functions using a connection parameter """
+"""
+    Fixtures with a function scope for testing db
+    functions using a connection parameter
+"""
 @pytest.fixture()
 def connection_function_scope():
     conn = db.create_connection(':memory:')

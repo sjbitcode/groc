@@ -13,6 +13,7 @@ pytest = "*"
 unidecode = "*"
 colorama = "*"
 ptable = "*"
+pytest-cov = "*"
 
 [requires]
 python_version = "3.7"
