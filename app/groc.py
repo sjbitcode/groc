@@ -5,28 +5,29 @@ from app import db, exceptions, utils
 
 
 class Groc:
-    def _get_connection(self, db_url):
-        """
-        Sets instance's connection attribute
-
-        Args:
-            db_url (str): absolute url of db
-
-        Raises:
-            exceptions.DatabaseError: Any error connecting to db
-
-        """
-        try:
-            self.connection = db.create_connection(db_url)
-        except (sqlite3.OperationalError, sqlite3.DatabaseError):
-            raise exceptions.DatabaseError('Error connecting to database')
-
     def __init__(self):
         self.groc_dir = os.path.expanduser('~/.groc/')
         self.db_name = 'groc.db'
-        self.db_url = os.path.join(self.groc_dir, self.db_name)
+        # self.db_url = os.path.join(self.groc_dir, self.db_name)
+        self.db_url = self._get_db_url()
         # Set instance db connection
-        self._get_connection(self.db_url)
+        self.connection = self._get_connection()
+
+    def _get_db_url(self):
+        """ Create the db_url attribute. """
+        return os.path.join(self.groc_dir, self.db_name)
+
+    def _get_connection(self):
+        """
+        Sets the connection attribute.
+
+        Raises:
+            exceptions.DatabaseError: Any error connecting to db
+        """
+        try:
+            return db.create_connection(self.db_url)
+        except (sqlite3.OperationalError, sqlite3.DatabaseError):
+            raise exceptions.DatabaseError('Error connecting to database')
 
     def _create_and_setup_db(self):
         """ Create database and tables. """
