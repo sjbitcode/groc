@@ -54,10 +54,6 @@ class MutuallyExclusiveOption(click.Option):
         return super().handle_parse_result(ctx, opts, args)
 
 
-def abort_if_false(ctx, param, value):
-    if not value:
-        ctx.abort()
-
 # Click CLI
 @click.group()
 @click.pass_context
@@ -66,6 +62,12 @@ def groc_entrypoint(ctx):
     A simple bill tracking tool to help you review and analyze purchases.
     """
     ctx.obj = {}
+
+
+@groc_entrypoint.command('hi')
+@click.argument('name')
+def hi(name):
+    click.echo(f'Hello {name}!')
 
 
 @groc_entrypoint.command('init', short_help='Create database in groc directory')
