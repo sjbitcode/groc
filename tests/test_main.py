@@ -437,12 +437,18 @@ def test_add_file(groc_connection, groc_db_url, connection_function_scope,
     groc.Groc()
     file_path = create_purchase_csvs[0]
 
+    output = (
+        f'Importing data from {file_path}\n'
+        f'2 purchase(s) added\n'
+        f'Added 2 purchase(s) successfully.'
+    )
+
     runner = CliRunner()
     result = runner.invoke(
         groc_cli, ['add', '--source', file_path]
     )
     assert result.exit_code == 0
-    assert result.output == f'Added 2 purchase(s) successfully.\n'
+    assert result.output == f'{output}\n'
 
 
 @mock.patch('app.main.Groc._get_db_url')
@@ -453,13 +459,22 @@ def test_add_dir(groc_connection, groc_db_url, connection_function_scope,
     groc_connection.return_value = connection_function_scope
     groc.Groc()
     dir_path = purchase_csv_dir
+    files = purchase_csv_dir.listdir()
+
+    output = (
+        f'Importing data from {files[0]}\n'
+        f'2 purchase(s) added\n'
+        f'Importing data from {files[1]}\n'
+        f'2 purchase(s) added\n'
+        f'Added 4 purchase(s) successfully.'
+    )
 
     runner = CliRunner()
     result = runner.invoke(
         groc_cli, ['add', '--source', dir_path]
     )
     assert result.exit_code == 0
-    assert result.output == f'Added 4 purchase(s) successfully.\n'
+    assert result.output == f'{output}\n'
 
 
 @mock.patch('app.main.Groc._get_db_url')
@@ -474,9 +489,45 @@ def test_add_dir_with_duplicate_purchase(groc_connection, groc_db_url,
     groc.Groc()
     dir_path = purchase_csv_dir
 
+    files = purchase_csv_dir.listdir()
+
+    output = (
+        f'Importing data from {files[0]}\n'
+        f'2 purchase(s) added\n'
+        f'Importing data from {files[1]}\n'
+        f'2 purchase(s) added\n'
+        f'Importing data from {files[2]}'
+    )
+    exc_str = 'Duplicate purchase detected -- '\
+              '(date: 2019-01-03, store: Store Bar, ' \
+              'total: 25.00, description: bars)'
+
     runner = CliRunner()
     result = runner.invoke(
-        groc_cli, ['add', '--source', dir_path, '--ignore-duplicate']
+        groc_cli, ['add', '--source', dir_path]
     )
-    assert result.exit_code == 0
-    assert result.output == f'Added 4 purchase(s) successfully.\n'
+    assert result.exit_code == 1
+    assert result.output == f'{output}\n'
+    assert result.exception.__str__() == exc_str
+
+
+def test_add_manual_and_source():
+    runner = CliRunner()
+    result = runner.invoke(
+        groc_cli, ['add', '--source', 'my_csvs', '--date', '2019-01-01']
+    )
+    assert result.exit_code == 2
+    assert result.output == 'Error: Illegal usage: source is ' \
+                            'mutually exclusive with arguments:' \
+                            ' [date, total, store, description]\n'
+
+
+def test_add_date_field_only():
+    runner = CliRunner()
+    result = runner.invoke(
+        groc_cli, ['add', '--date', '2019-01-01']
+    )
+    assert result.exit_code == 2
+    assert result.output == 'Error: Illegal usage: date ' \
+                            'requires arguments:' \
+                            ' [total, store]\n'

@@ -50,8 +50,8 @@ def create_purchase_csvs(tmpdir):
 def add_csv_file_with_duplicate(tmpdir):
     more_purchases = tmpdir.join('more_purchases.csv')
     fieldnames = "Date,Store,Total,Description"
-    jan_entries = ["2019-01-03,Store Bar,25.00,bars"]
-    more_purchases.write(f"{fieldnames}\n{jan_entries[0]}")
+    jan_duplicate_entry = "2019-01-03,Store Bar,25.00,bars"
+    more_purchases.write(f"{fieldnames}\n{jan_duplicate_entry}")
     return str(more_purchases)
 
 
