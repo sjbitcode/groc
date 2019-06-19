@@ -590,17 +590,16 @@ def insert_from_csv_dict(conn, file_paths, ignore_duplicate=False):
     count = 0
 
     for file in files:
-        name = file.name.split('/')[-1]
-        print(f'Importing data from {name:<25}', end='')
+        print(f'Importing data from {file.name}')
         dict_reader = csv.DictReader(file)
         dict_reader.fieldnames = [name.lower()
                                   for name in dict_reader.fieldnames]
 
         row_count = 0
         for row in dict_reader:
-            validate_insert_row(conn, row, ignore_duplicate)
-            row_count += 1
-            count += 1
+            if validate_insert_row(conn, row, ignore_duplicate):
+                row_count += 1
+                count += 1
         print(f'{row_count} purchase(s) added')
 
     return count
