@@ -269,8 +269,11 @@ def breakdown(month, year, verbose):
 
     # Format month and year params
     if year and not month:
+        # click.echo('all months for all years')
         month = ['0'+str(x) if len(str(x)) == 1 else str(x)
-                 for x in range(1, 12)]
+                 for x in range(1, 13)]
+        # click.echo(f'months --> {month}')
+        # click.echo(f'year --> {year}')
     if not year:
         year = [datetime.date.today().strftime('%Y')]
     if not month:

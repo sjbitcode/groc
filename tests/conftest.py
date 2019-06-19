@@ -47,6 +47,20 @@ def create_purchase_csvs(tmpdir):
 
 
 @pytest.fixture
+def add_csv_file_with_duplicate(tmpdir):
+    more_purchases = tmpdir.join('more_purchases.csv')
+    fieldnames = "Date,Store,Total,Description"
+    jan_entries = ["2019-01-03,Store Bar,25.00,bars"]
+    more_purchases.write(f"{fieldnames}\n{jan_entries[0]}")
+    return str(more_purchases)
+
+
+@pytest.fixture
+def purchase_csv_dir(tmpdir, create_purchase_csvs):
+    return tmpdir
+
+
+@pytest.fixture
 def create_invalid_purchase_csvs(tmpdir):
     jan_purchases = tmpdir.join('jan_2019_2.csv')
     feb_purchases = tmpdir.join('feb_2019_2.csv')
@@ -138,6 +152,12 @@ def connection_function_scope():
     db.setup_db(conn)
     yield conn
     conn.close()
+
+
+@pytest.fixture()
+def cursor_function_scope(connection_function_scope):
+    cursor = connection_function_scope.cursor()
+    yield cursor
 
 
 @pytest.fixture()

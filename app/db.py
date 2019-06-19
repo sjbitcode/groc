@@ -499,7 +499,12 @@ def insert_row_sqlite(cursor, row):
         if (('UNIQUE constraint' in e.__str__()) or
            ('Purchase entry already exists' in e.__str__())):
             exc = exceptions.DuplicateRow
-            msg = 'Duplicate purchase detected.'
+            total = float(total)/100
+            msg = f'Duplicate purchase detected -- (' \
+                  f'date: {purchase_date}, ' \
+                  f'store: {store}, ' \
+                  f'total: {total:.2f}, ' \
+                  f'description: {description})'
 
         if 'NOT NULL constraint' in e.__str__():
             msg = 'Received incorrect value for required field(s).'
@@ -585,12 +590,17 @@ def insert_from_csv_dict(conn, file_paths, ignore_duplicate=False):
     count = 0
 
     for file in files:
+        name = file.name.split('/')[-1]
+        print(f'Importing data from {name:<25}', end='')
         dict_reader = csv.DictReader(file)
         dict_reader.fieldnames = [name.lower()
                                   for name in dict_reader.fieldnames]
 
+        row_count = 0
         for row in dict_reader:
             validate_insert_row(conn, row, ignore_duplicate)
+            row_count += 1
             count += 1
+        print(f'{row_count} purchase(s) added')
 
     return count
