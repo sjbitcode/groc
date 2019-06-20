@@ -4,7 +4,8 @@ import datetime
 import click
 from prettytable import from_db_cursor
 
-from app.groc import Groc
+from .models import Groc
+from .version import VERSION
 
 
 class MutuallyExclusiveOption(click.Option):
@@ -12,6 +13,7 @@ class MutuallyExclusiveOption(click.Option):
         self.mutually_exclusive = kwargs.pop('mutually_exclusive', [])
         self.required_with = kwargs.pop('required_with', [])
 
+        # Modify help texts
         if self.mutually_exclusive:
             help_text = kwargs.get('help', '')
             mutex_str = ', '.join(self.mutually_exclusive)
@@ -19,7 +21,6 @@ class MutuallyExclusiveOption(click.Option):
                 '\n-- NOTE: This argument is mutually exclusive with'
                 ' arguments: [' + mutex_str + ']'
             )
-
         if self.required_with:
             help_text = kwargs.get('help', '')
             req_opts_str = ', '.join(self.required_with)
@@ -54,12 +55,9 @@ class MutuallyExclusiveOption(click.Option):
         return super().handle_parse_result(ctx, opts, args)
 
 
-def abort_if_false(ctx, param, value):
-    if not value:
-        ctx.abort()
-
 # Click CLI
 @click.group()
+@click.version_option(version=VERSION, prog_name='groc')
 @click.pass_context
 def groc_entrypoint(ctx):
     """
@@ -71,33 +69,51 @@ def groc_entrypoint(ctx):
 @groc_entrypoint.command('init', short_help='Create database in groc directory')
 @click.option('--verbose', is_flag=True)
 def init(verbose):
+    """
+    Set up Groc!
+
+    Creates the groc directory in User directory and
+    creates the groc database inside groc directory.
+    Use the verbose flag to see extra output statements.
+    \f
+    Args:
+        verbose (bool): Flag to output extra output statements.
+    """
     g = Groc()
 
     if verbose:
         if g.groc_dir_exists():
-            click.echo('groc directory exists')
+            click.echo('Groc directory exists')
         else:
-            click.echo('Creating groc directory')
-        click.echo('Attempting to create database...')
+            click.echo('Attempting to create groc directory and db')
     g.init_groc()
+    click.secho('Welcome to groc! You\'re all set up!', fg='green')
 
 
 @groc_entrypoint.command('reset', short_help='Reset database')
 @click.option('--dry-run', is_flag=True)
 def reset(dry_run):
-    g = Groc()
+    """
+    Deletes all purchase entries.
 
+    Use the dry-run flag to see how many purchase exists without
+    actually deleting them.
+    \f
+    Args:
+        dry_run (bool): flag to toggle real deletion of purchases.
+    """
+    g = Groc()
     purchase_count = g.select_purchase_count()
+
     click.echo(f'Database reset will delete {purchase_count} purchase entries.')
+
     if not dry_run:
         g.clear_db()
         click.echo('Database reset successful.')
 
 
 def check_limit(ctx, param, value):
-    if value > 100:
-        value = 100
-    return value
+    return 100 if value > 100 else value
 
 
 @groc_entrypoint.command('list', short_help='List purchases')
@@ -126,15 +142,37 @@ def check_limit(ctx, param, value):
               help='list all entries')
 @click.option('--verbose', is_flag=True)
 def list(limit, month, year, all, verbose):
+    """
+    View a list of purchases. You have three options to do so:
+
+    (1) You can see the latest purchases limited by an amount, OR
+    (2) You can see all purchases for a month and year pair, OR
+    (3) You can see purchases for a  month and year pair by limit.
+    Limit maximum is 100.
+
+    If a month is passed, the year is default to current year.
+    A year cannot be passed without a month.
+    Pass the all flag to get all purchases for that month/year.
+    \f
+    Args:
+        limit (int): Limit number for purchases.
+        month (str): Two digit month.
+        year (str): Four digit year.
+        all (bool): Flag to show all purchases for a month/year.
+        verbose (bool): Flag to show purchase ids too.
+    """
     g = Groc()
 
     num_purchases = g.select_purchase_count()
     output_msg = None
 
+    # If there are purchases in db
     if num_purchases:
-        purchases = None
-        table_title = None
+        purchases = None  # to hold cursor object
+        table_title = None  # to hold table title depending on query
 
+        # If month passed, get either all purchases for month/year
+        # or limited purchases for month/year depending on if 'all' flag
         if month:
             month = datetime.datetime.strftime(month, '%m')
             year = datetime.datetime.strftime(year, '%Y')
@@ -144,21 +182,27 @@ def list(limit, month, year, all, verbose):
             else:
                 table_title = f'Last {limit} purchase(s) from {month}/{year}'
                 purchases = g.list_purchases_date_limit(month, year, limit)
+        # Get latest purchases by limit amount
         else:
             table_title = f'Last {limit} purchase(s)'
             purchases = g.list_purchases_limit(limit)
 
+        # Format output table
         table = from_db_cursor(purchases)
         table.title = table_title
         table.align['store'] = 'r'
         table.align['total'] = 'r'
         table.align['description'] = 'l'
+
+        # If verbose flag, show all table fields, else remove id field
         if verbose:
             output_msg = table.get_string()
         else:
             field_names = [name for name in table.field_names]
             field_names.remove('id')
             output_msg = table.get_string(fields=field_names)
+
+    # If no purchases in db
     else:
         output_msg = 'No purchase entries available. You should add some!\nSee groc add --help to add purchases.'
 
@@ -166,6 +210,11 @@ def list(limit, month, year, all, verbose):
 
 
 def format_month_year(ctx, param, value):
+    """
+    If month or year arguments passed,
+    format the datetime object into strings
+    and return in a list.
+    """
     if value:
         if param.name == 'month':
             value = [datetime.datetime.strftime(m, '%m') for m in value]
@@ -179,30 +228,51 @@ def format_month_year(ctx, param, value):
 @click.option('--month', '-m',
               type=click.DateTime(formats=['%m']),
               multiple=True,
-              show_default=True,
               help='month as a two digit number',
               callback=format_month_year)
 @click.option('--year', '-y',
               type=click.DateTime(formats=['%Y']),
               multiple=True,
-              show_default=True,
               help='year as a four digit number',
               callback=format_month_year)
 @click.option('--verbose', is_flag=True)
 def breakdown(month, year, verbose):
+    """
+    View helpful stats for purchases grouped by month.
+
+    Stats are defaulted for current month and current year.
+    You can also pass a combination of multiple months and years using the
+    month and year flags.
+
+    If a single month is passed, you will view breakdown for
+    the month for all years.
+    If a single year is passed, you will view breakdown for
+    all months for that year.
+    Pass multiple months and multiple years to target those
+    month and year pairs.
+
+    Use the verbose flag to see extended stats.
+    \f
+    Args:
+        month (str): Two digit month.
+        year (str): Four digit year.
+        verbose (bool): Flag to show extended stats.
+    """
     g = Groc()
 
     num_purchases = g.select_purchase_count()
     output_msg = None
 
+    # Format month and year params
     if year and not month:
         month = ['0'+str(x) if len(str(x)) == 1 else str(x)
-                 for x in range(1, 12)]
+                 for x in range(1, 13)]
     if not year:
         year = [datetime.date.today().strftime('%Y')]
     if not month:
         month = [datetime.date.today().strftime('%m')]
 
+    # If there are purchases in db
     if num_purchases:
         data = g.breakdown(month, year)
         table = from_db_cursor(data)
@@ -223,6 +293,8 @@ def breakdown(month, year, verbose):
             field_names.remove('avg purchase')
             field_names.remove('store count')
         output_msg = table.get_string(fields=field_names)
+
+    # If no purchases in db
     else:
         output_msg = 'No purchase entries available. You should add some!\nSee groc add --help to add purchases.'
 
@@ -238,10 +310,24 @@ def breakdown(month, year, verbose):
               required=True)
 @click.option('--verbose', is_flag=True)
 def delete(dry_run, id, verbose):
-    g = Groc()
-    purchase_ids_exist = g.select_count_by_id(id).fetchall()
+    """
+    Delete purchases based on id.
 
-    if purchase_ids_exist:
+    Use the dry-run flag to see what purchases will be deleted.
+    Use the verbose flag to see purchase details.
+    \f
+    Args:
+        id (tuple): Purchase ids.
+        dry_run (bool): See purchases that would be deleted.
+        verbose (bool): See purchase details.
+    """
+    g = Groc()
+    purchase_ids = g.select_purchase_ids(id).fetchall()
+
+    # If any of the purchases exist
+    if purchase_ids:
+
+        # Format an output table with purchase details
         if verbose:
             purchases = g.select_by_id(id)
             table = from_db_cursor(purchases)
@@ -250,13 +336,15 @@ def delete(dry_run, id, verbose):
             table.align['description'] = 'l'
             click.echo(table)
 
-        ids_str = ', '.join([str(row['id']) for row in purchase_ids_exist])
+        # Output this string regardless of dry-run or not
+        ids_str = ', '.join([str(row['id']) for row in purchase_ids])
         click.echo(f'Deleting purchases with id(s) {ids_str}.')
 
         if not dry_run:
             g.delete_purchase(id)
             click.echo(f'Delete successful.')
 
+    # None of purchase ids exist
     else:
         ids_str = ', '.join([str(i) for i in id])
         click.echo('No purchases with id(s) {} to be deleted.'.format(ids_str))
@@ -297,7 +385,23 @@ def delete(dry_run, id, verbose):
 @click.option('--ignore-duplicate', is_flag=True)
 def add(date, total, store, description, source, ignore_duplicate):
     """
-    Add a purchase via command line, file, or directory
+    Add purchases via command line, file, or directory.
+
+    Via commandline, you can only add a single purchase.
+    Commandline arguments are store, total, date, and description.
+    Store and total fields required. If date not passed,
+    its defaulted to current date. Description is
+    optional.
+
+    By file or directory, supply the path via source argument.
+    If path points to directory, all csv files are read.
+    \f
+    Args:
+        date (str): format 'Y-m-d'. Will default to today's date.
+                   Gets processed as a datetime.datetime object.
+        description (str): Purchase note. Optional.
+        total (float): Purchase total.
+        store (str): Purchase store.
     """
     g = Groc()
 
@@ -305,6 +409,7 @@ def add(date, total, store, description, source, ignore_duplicate):
         count = g.add_purchase_path(source, ignore_duplicate)
         click.echo(f'Added {count} purchase(s) successfully.')
 
+    # if one of required fields from (store, total, description, date)
     elif store:
         success = g.add_purchase_manual({
             'date': date,
@@ -314,6 +419,7 @@ def add(date, total, store, description, source, ignore_duplicate):
         count = 1 if success else 0
         click.echo(f'Added {count} purchase successfully.')
 
+    # either source 0R (store, total) required
     else:
         raise click.UsageError('''
         Missing option "--source" OR
@@ -325,9 +431,5 @@ def safe_entry_point():
     try:
         groc_entrypoint()
     except Exception as e:
-        # raise e
+        # Echo the exception message
         click.secho(str(e), fg='red')
-
-
-if __name__ == '__main__':
-    safe_entry_point()

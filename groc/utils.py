@@ -4,8 +4,7 @@ import os
 
 from unidecode import unidecode
 
-from app.exceptions import (InvalidRowException, RowIntegrityError,
-                            RowValueError)
+from . import exceptions
 
 
 def check_row_integrity(row):
@@ -16,14 +15,14 @@ def check_row_integrity(row):
         row (dict/ordered dict): A dictionary of purchase data.
 
     Raises:
-        RowIntegrityError: If keys are not found in dict.
+        exceptions.RowIntegrityError: If keys are not found in dict.
     """
     fieldnames = {'date', 'store', 'total', 'description'}
 
     if set(row.keys()) != fieldnames:
         # Get fieldnames that are not in supported fieldnames
         incorrect_fieldnames = set(row.keys()) - fieldnames
-        raise RowIntegrityError(
+        raise exceptions.RowIntegrityError(
             f'Improperly formatted fieldnames: {incorrect_fieldnames}')
 
 
@@ -35,7 +34,7 @@ def check_required_row_values(row):
         row (dict/ordered dict): A dictionary of purchase data.
 
     Raises:
-        RowIntegrityError: If a required value is falsey.
+        exceptions.RowIntegrityError: If a required value is falsey.
     """
     required_values_keys = ['date', 'store', 'total']
 
@@ -46,7 +45,7 @@ def check_required_row_values(row):
     not_supplied_values = ", ".join([f"\'{row[key]}\'" for key in not_supplied])
 
     if not_supplied:
-        raise RowIntegrityError(
+        raise exceptions.RowIntegrityError(
             f'{not_supplied_str} value(s) required: ({not_supplied_values})')
 
 
@@ -88,7 +87,7 @@ def format_total(total):
         int: Total cents.
 
     Raises:
-        RowValueError: If dollar could not be converted to cents.
+        exceptions.RowValueError: If dollar could not be converted to cents.
     """
     try:
         # return int(round(float(total)*100))
@@ -100,7 +99,7 @@ def format_total(total):
             * 100
         )
     except (dc.InvalidOperation, Exception):
-        raise RowValueError(
+        raise exceptions.RowValueError(
             f'Incorrect value for total: \'{total}\'. ' +
             f'(Format must be whole or decimal number like 10, 100.00, 1000.01).')
 
@@ -118,7 +117,7 @@ def format_date(date):
         datetime.date: Given date formatted to datetime.date.
 
     Raises:
-        RowValueError: If given date is not a string or
+        exceptions.RowValueError: If given date is not a string or
                        datetime.datetime object.
     """
     try:
@@ -129,9 +128,9 @@ def format_date(date):
                 date.year, date.month, date.day
             )
         else:
-            raise RowValueError
+            raise exceptions.RowValueError
     except Exception:
-        raise RowValueError(f'Incorrect value for date: \'{date}\'. ' +
+        raise exceptions.RowValueError(f'Incorrect value for date: \'{date}\'. ' +
                             f'(Format must be YYYY-MM-DD).')
 
 
@@ -146,7 +145,7 @@ def validate_row(row):
         dict: A dictionary with cleaned and formatted values.
 
     Raises:
-        InvalidRowException: If data is incorrectly formatted,
+        exceptions.InvalidRowException: If data is incorrectly formatted,
                              or has missing/incorrect values.
     """
     try:
@@ -156,8 +155,8 @@ def validate_row(row):
         row['total'] = format_total(row['total'])
         row['date'] = format_date(row['date'])
         return row
-    except (RowIntegrityError, RowValueError, Exception) as exc:
-        raise InvalidRowException(str(exc))
+    except (exceptions.RowIntegrityError, exceptions.RowValueError, Exception) as exc:
+        raise exceptions.InvalidRowException(str(exc))
 
 
 def compile_csv_files(dir_path, ignore_files=None):
