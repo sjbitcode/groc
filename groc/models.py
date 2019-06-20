@@ -26,7 +26,7 @@ class Groc:
         try:
             return db.create_connection(self.db_url)
         except (sqlite3.OperationalError, sqlite3.DatabaseError):
-            raise exceptions.DatabaseError('Error connecting to database')
+            raise exceptions.DatabaseError('Error connecting to database. Make sure database is initialized.')
 
     def _create_and_setup_db(self):
         """ Create database and tables. """
