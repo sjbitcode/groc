@@ -7,14 +7,14 @@ from groc import exceptions
 from groc.models import Groc
 
 
+@mock.patch('groc.models.Groc.groc_dir_exists', return_value=False)
 @mock.patch('groc.models.os.path.expanduser', return_value='my-groc-dir')
 @mock.patch('groc.models.Groc._get_db_url', return_value='some-db-url')
-@mock.patch('groc.models.db.create_connection', return_value='some-connection')
-def test_get_connection_called_with_db_url(
-    mock_create_connection, mock_get_db_url, mock_os_path_expanduser
+def test_groc_connection_is_none(
+    mock_get_db_url, mock_os_path_expanduser, mock_groc_dir_exists
 ):
-    _ = Groc()
-    mock_create_connection.assert_called_with('some-db-url')
+    g = Groc()
+    assert not g.connection
 
 
 @mock.patch('groc.models.os.path.expanduser', return_value='my-groc-dir')
