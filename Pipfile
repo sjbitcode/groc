@@ -14,6 +14,8 @@ unidecode = "*"
 colorama = "*"
 ptable = "*"
 pytest-cov = "*"
+twine = "*"
+bumpversion = "*"
 
 [requires]
 python_version = "3.7"

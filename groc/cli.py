@@ -264,11 +264,8 @@ def breakdown(month, year, verbose):
 
     # Format month and year params
     if year and not month:
-        # click.echo('all months for all years')
         month = ['0'+str(x) if len(str(x)) == 1 else str(x)
                  for x in range(1, 13)]
-        # click.echo(f'months --> {month}')
-        # click.echo(f'year --> {year}')
     if not year:
         year = [datetime.date.today().strftime('%Y')]
     if not month:
@@ -435,7 +432,3 @@ def safe_entry_point():
     except Exception as e:
         # Echo the exception message
         click.secho(str(e), fg='red')
-
-
-if __name__ == '__main__':
-    safe_entry_point()
