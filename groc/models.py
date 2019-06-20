@@ -1,7 +1,7 @@
 import os
 import sqlite3
 
-from app import db, exceptions, utils
+from . import db, exceptions, utils
 
 
 class Groc:

@@ -5,24 +5,17 @@ from unittest import mock
 from click.testing import CliRunner
 from prettytable import from_db_cursor
 
-from app.main import groc_entrypoint as groc_cli
-from app import groc
+from groc.cli import groc_entrypoint as groc_cli
+from groc.models import Groc
 
 
-def test_hi():
-    runner = CliRunner()
-    result = runner.invoke(groc_cli, ['hi', 'Sangeeta'])
-    assert result.exit_code == 0
-    assert result.output == 'Hello Sangeeta!\n'
-
-
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
-@mock.patch('app.main.Groc.groc_dir_exists', return_value=True, autospec=True)
-@mock.patch('app.main.Groc.init_groc', autospec=True)
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
+@mock.patch('groc.cli.Groc.groc_dir_exists', return_value=True, autospec=True)
+@mock.patch('groc.cli.Groc.init_groc', autospec=True)
 def test_init_groc_dir_exists(groc_init, groc_dir_exists, groc_connection,
                               groc_db_url):
-    groc.Groc()
+    _ = Groc()
     runner = CliRunner()
 
     result = runner.invoke(groc_cli, ['init', '--verbose'])
@@ -31,12 +24,12 @@ def test_init_groc_dir_exists(groc_init, groc_dir_exists, groc_connection,
                              'Attempting to create database...\n')
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
-@mock.patch('app.main.Groc.groc_dir_exists', return_value=False, autospec=True)
-@mock.patch('app.main.Groc.init_groc', autospec=True)
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
+@mock.patch('groc.cli.Groc.groc_dir_exists', return_value=False, autospec=True)
+@mock.patch('groc.cli.Groc.init_groc', autospec=True)
 def test_init(groc_init, groc_dir_exists, groc_connection, groc_db_url):
-    groc.Groc()
+    _ = Groc()
     runner = CliRunner()
 
     result = runner.invoke(groc_cli, ['init', '--verbose'])
@@ -45,25 +38,25 @@ def test_init(groc_init, groc_dir_exists, groc_connection, groc_db_url):
                              'Attempting to create database...\n')
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
-@mock.patch('app.main.Groc.select_purchase_count', return_value=10, autospec=True)
-@mock.patch('app.main.Groc.clear_db')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
+@mock.patch('groc.cli.Groc.select_purchase_count', return_value=10, autospec=True)
+@mock.patch('groc.cli.Groc.clear_db')
 def test_reset_dry_run(groc_clear, groc_purchase_count, groc_connection,
                        groc_db_url):
-    groc.Groc()
+    _ = Groc()
     runner = CliRunner()
     result = runner.invoke(groc_cli, ['reset', '--dry-run'])
     assert result.exit_code == 0
     assert result.output == 'Database reset will delete 10 purchase entries.\n'
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
-@mock.patch('app.main.Groc.select_purchase_count', return_value=10, autospec=True)
-@mock.patch('app.main.Groc.clear_db')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
+@mock.patch('groc.cli.Groc.select_purchase_count', return_value=10, autospec=True)
+@mock.patch('groc.cli.Groc.clear_db')
 def test_reset(groc_clear, groc_purchase_count, groc_connection, groc_db_url):
-    groc.Groc()
+    _ = Groc()
     runner = CliRunner()
     result = runner.invoke(groc_cli, ['reset'])
     assert result.exit_code == 0
@@ -71,12 +64,12 @@ def test_reset(groc_clear, groc_purchase_count, groc_connection, groc_db_url):
                              'Database reset successful.\n')
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
-@mock.patch('app.main.Groc.select_purchase_count', return_value=0, autospec=True)
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
+@mock.patch('groc.cli.Groc.select_purchase_count', return_value=0, autospec=True)
 def test_list_limit_no_purchases(groc_purchase_count, groc_connection, 
                                  groc_db_url):
-    groc.Groc()
+    _ = Groc()
 
     runner = CliRunner()
     result = runner.invoke(groc_cli, ['list', '--verbose'])
@@ -84,13 +77,13 @@ def test_list_limit_no_purchases(groc_purchase_count, groc_connection,
     assert result.output == 'No purchase entries available. You should add some!\nSee groc add --help to add purchases.\n'
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
 def test_list_limit_more_than_100(groc_connection, groc_db_url, 
                                   connection_function_scope, 
                                   stores_and_purchases_function_scope):
     groc_connection.return_value = connection_function_scope
-    g = groc.Groc()
+    g = Groc()
 
     # Make table
     table = from_db_cursor(g.list_purchases_limit(101))
@@ -105,13 +98,13 @@ def test_list_limit_more_than_100(groc_connection, groc_db_url,
     assert result.output == f'{table.get_string()}\n'
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
 def test_list_limit_default(groc_connection, groc_db_url, 
                             connection_function_scope, 
                             stores_and_purchases_function_scope):
     groc_connection.return_value = connection_function_scope
-    g = groc.Groc()
+    g = Groc()
 
     # Make table
     table = from_db_cursor(g.list_purchases_limit(50))
@@ -126,13 +119,13 @@ def test_list_limit_default(groc_connection, groc_db_url,
     assert result.output == f'{table.get_string()}\n'
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
 def test_list_limit_default_no_verbose(groc_connection, groc_db_url,
                                        connection_function_scope,
                                        stores_and_purchases_function_scope):
     groc_connection.return_value = connection_function_scope
-    g = groc.Groc()
+    g = Groc()
 
     # Make table
     purchases = g.list_purchases_limit(50)
@@ -150,14 +143,14 @@ def test_list_limit_default_no_verbose(groc_connection, groc_db_url,
     assert result.output == f'{table.get_string(fields=field_names)}\n'
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
 def test_list_month_year_all_verbose(groc_connection, groc_db_url,
                                      connection_function_scope,
                                      stores_and_purchases_function_scope):
 
     groc_connection.return_value = connection_function_scope
-    g = groc.Groc()
+    g = Groc()
 
     # Make table for Jan 2019 purchases (3 total)
     month, year = '01', '2019'
@@ -175,14 +168,14 @@ def test_list_month_year_all_verbose(groc_connection, groc_db_url,
     assert result.output == f'{table.get_string()}\n'
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
 def test_list_month_year_limit_verbose(groc_connection, groc_db_url,
                                        connection_function_scope,
                                        stores_and_purchases_function_scope):
 
     groc_connection.return_value = connection_function_scope
-    g = groc.Groc()
+    g = Groc()
 
     # Make table for Jan 2019 purchases limit by 1
     month, year, limit = '01', '2019', 1
@@ -200,13 +193,13 @@ def test_list_month_year_limit_verbose(groc_connection, groc_db_url,
     assert result.output == f'{table.get_string()}\n'
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
-@mock.patch('app.main.Groc.select_purchase_count', return_value=0)
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
+@mock.patch('groc.cli.Groc.select_purchase_count', return_value=0)
 def test_breakdown_no_purchases(groc_purchase_count, groc_connection, 
                                 groc_db_url):
 
-    groc.Groc()
+    _ = Groc()
 
     runner = CliRunner()
     result = runner.invoke(groc_cli, ['breakdown'])
@@ -214,14 +207,14 @@ def test_breakdown_no_purchases(groc_purchase_count, groc_connection,
     assert result.output == f'No purchase entries available. You should add some!\nSee groc add --help to add purchases.\n'
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
 def test_breakdown_default(groc_connection, groc_db_url,
                            connection_function_scope,
                            stores_and_purchases_function_scope):
 
     groc_connection.return_value = connection_function_scope
-    g = groc.Groc()
+    g = Groc()
     today = datetime.date.today()
     month, year = [today.strftime('%m')], [today.strftime('%Y')]
 
@@ -251,14 +244,14 @@ def test_breakdown_default(groc_connection, groc_db_url,
     assert result.output == f'{output_msg}\n'
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
 def test_breakdown_year_no_month_verbose(groc_connection, groc_db_url,
                                          connection_function_scope,
                                          stores_and_purchases_function_scope):
 
     groc_connection.return_value = connection_function_scope
-    g = groc.Groc()
+    g = Groc()
     month = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', 
              '12']
     year = ['2019']
@@ -277,14 +270,14 @@ def test_breakdown_year_no_month_verbose(groc_connection, groc_db_url,
     assert result.output == f'{output_msg}\n'
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
 def test_breakdown_year_month_year_verbose(groc_connection, groc_db_url,
                                            connection_function_scope,
                                            stores_and_purchases_function_scope):
 
     groc_connection.return_value = connection_function_scope
-    g = groc.Groc()
+    g = Groc()
     month, year = ['01', '02'], ['2019']
 
     data = g.breakdown(month, year)
@@ -302,13 +295,13 @@ def test_breakdown_year_month_year_verbose(groc_connection, groc_db_url,
     assert result.output == f'{output_msg}\n'
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
-@mock.patch('app.main.Groc.select_purchase_ids')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
+@mock.patch('groc.cli.Groc.select_purchase_ids')
 def test_delete_no_purchases(groc_select_purchase_ids, groc_connection, 
                              groc_db_url, cursor_function_scope):
     groc_select_purchase_ids.return_value = cursor_function_scope
-    groc.Groc()
+    _ = Groc()
     id = 1
 
     runner = CliRunner()
@@ -317,8 +310,8 @@ def test_delete_no_purchases(groc_select_purchase_ids, groc_connection,
     assert result.output == f'No purchases with id(s) {id} to be deleted.\n'
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
 def test_delete_purchases_verbose(groc_connection, groc_db_url,
                                   connection_function_scope,
                                   stores_and_purchases_function_scope):
@@ -330,7 +323,7 @@ def test_delete_purchases_verbose(groc_connection, groc_db_url,
     res = cursor.execute('SELECT id FROM purchase LIMIT 1;').fetchone()
     id = (res['id'])
 
-    g = groc.Groc()
+    g = Groc()
 
     purchases = g.select_by_id((id,))
     table = from_db_cursor(purchases)
@@ -348,8 +341,8 @@ def test_delete_purchases_verbose(groc_connection, groc_db_url,
     assert result.output == f'{table}\n{delete_msg}\n{delete_conf}\n'
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
 def test_delete_purchases_verbose_dry_run(groc_connection, groc_db_url,
                                           connection_function_scope,
                                           stores_and_purchases_function_scope):
@@ -361,7 +354,7 @@ def test_delete_purchases_verbose_dry_run(groc_connection, groc_db_url,
     res = cursor.execute('SELECT id FROM purchase LIMIT 1;').fetchone()
     id = (res['id'])
 
-    g = groc.Groc()
+    g = Groc()
 
     purchases = g.select_by_id((id,))
     table = from_db_cursor(purchases)
@@ -378,8 +371,8 @@ def test_delete_purchases_verbose_dry_run(groc_connection, groc_db_url,
     assert result.output == f'{table}\n{delete_msg}\n'
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
 def test_add_no_args(groc_connection, groc_db_url):
 
     runner = CliRunner()
@@ -388,11 +381,11 @@ def test_add_no_args(groc_connection, groc_db_url):
     assert result.exit_code == UsageError.exit_code
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
 def test_add_manual(groc_connection, groc_db_url, connection_function_scope):
     groc_connection.return_value = connection_function_scope
-    groc.Groc()
+    _ = Groc()
 
     runner = CliRunner()
     result = runner.invoke(
@@ -406,13 +399,13 @@ def test_add_manual(groc_connection, groc_db_url, connection_function_scope):
     assert result.output == f'Added 1 purchase successfully.\n'
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
 def test_add_manual_ignore_duplicate(groc_connection, groc_db_url,
                                      connection_function_scope,
                                      stores_and_purchases_function_scope):
     groc_connection.return_value = connection_function_scope
-    groc.Groc()
+    _ = Groc()
 
     runner = CliRunner()
     # Adding a duplicate purchase from pytest fixture
@@ -427,14 +420,14 @@ def test_add_manual_ignore_duplicate(groc_connection, groc_db_url,
     assert result.output == f'Added 0 purchase successfully.\n'
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
 def test_add_file(groc_connection, groc_db_url, connection_function_scope,
                   stores_and_purchases_function_scope,
                   create_purchase_csvs):
 
     groc_connection.return_value = connection_function_scope
-    groc.Groc()
+    _ = Groc()
     file_path = create_purchase_csvs[0]
 
     output = (
@@ -451,13 +444,13 @@ def test_add_file(groc_connection, groc_db_url, connection_function_scope,
     assert result.output == f'{output}\n'
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
 def test_add_dir(groc_connection, groc_db_url, connection_function_scope,
                  purchase_csv_dir):
 
     groc_connection.return_value = connection_function_scope
-    groc.Groc()
+    _ = Groc()
     dir_path = purchase_csv_dir
     files = purchase_csv_dir.listdir()
 
@@ -477,8 +470,8 @@ def test_add_dir(groc_connection, groc_db_url, connection_function_scope,
     assert result.output == f'{output}\n'
 
 
-@mock.patch('app.main.Groc._get_db_url')
-@mock.patch('app.main.Groc._get_connection')
+@mock.patch('groc.cli.Groc._get_db_url')
+@mock.patch('groc.cli.Groc._get_connection')
 def test_add_dir_with_duplicate_purchase(groc_connection, groc_db_url,
                                          connection_function_scope,
                                          create_purchase_csvs,
@@ -486,7 +479,7 @@ def test_add_dir_with_duplicate_purchase(groc_connection, groc_db_url,
                                          purchase_csv_dir):
 
     groc_connection.return_value = connection_function_scope
-    groc.Groc()
+    _ = Groc()
     dir_path = purchase_csv_dir
 
     files = purchase_csv_dir.listdir()

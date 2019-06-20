@@ -2,7 +2,7 @@ import datetime
 import pytest
 import sqlite3
 
-from app import db, exceptions
+from groc import db, exceptions
 
 
 def test_multiple_parameter_substitution_1():

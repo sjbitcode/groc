@@ -4,7 +4,7 @@ import os
 
 from unidecode import unidecode
 
-from app import exceptions
+from . import exceptions
 
 
 def check_row_integrity(row):

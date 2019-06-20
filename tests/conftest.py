@@ -3,7 +3,7 @@ import textwrap
 
 import pytest
 
-from app import db
+from groc import db
 
 
 @pytest.fixture

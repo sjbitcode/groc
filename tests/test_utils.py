@@ -2,7 +2,7 @@ import datetime
 import os
 import pytest
 
-from app import exceptions, utils
+from groc import exceptions, utils
 
 
 @pytest.mark.parametrize('dollar_amount, total_cents', [

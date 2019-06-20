@@ -2,7 +2,7 @@ import csv
 import datetime
 import sqlite3
 
-from app import exceptions, utils
+from . import exceptions, utils
 
 
 """ SQLite specific statements """

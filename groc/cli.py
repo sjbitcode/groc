@@ -4,7 +4,7 @@ import datetime
 import click
 from prettytable import from_db_cursor
 
-from app.groc import Groc
+from .models import Groc
 
 
 class MutuallyExclusiveOption(click.Option):
@@ -56,18 +56,13 @@ class MutuallyExclusiveOption(click.Option):
 
 # Click CLI
 @click.group()
+@click.version_option()
 @click.pass_context
 def groc_entrypoint(ctx):
     """
     A simple bill tracking tool to help you review and analyze purchases.
     """
     ctx.obj = {}
-
-
-@groc_entrypoint.command('hi')
-@click.argument('name')
-def hi(name):
-    click.echo(f'Hello {name}!')
 
 
 @groc_entrypoint.command('init', short_help='Create database in groc directory')
@@ -438,7 +433,7 @@ def safe_entry_point():
     try:
         groc_entrypoint()
     except Exception as e:
-        # raise e
+        # Echo the exception message
         click.secho(str(e), fg='red')
 
 
