@@ -8,10 +8,9 @@ class Groc:
     def __init__(self):
         self.groc_dir = os.path.expanduser('~/.groc/')
         self.db_name = 'groc.db'
-        # self.db_url = os.path.join(self.groc_dir, self.db_name)
         self.db_url = self._get_db_url()
         # Set instance db connection
-        self.connection = self._get_connection()
+        self.connection = self._get_connection() if self.groc_dir_exists() else None
 
     def _get_db_url(self):
         """ Create the db_url attribute. """
@@ -24,7 +23,6 @@ class Groc:
         Raises:
             exceptions.DatabaseError: Any error connecting to db
         """
-        print(f'GROC DIR EXISTS ---> {self.groc_dir_exists()}')
         try:
             return db.create_connection(self.db_url)
         except (sqlite3.OperationalError, sqlite3.DatabaseError):
@@ -32,6 +30,7 @@ class Groc:
 
     def _create_and_setup_db(self):
         """ Create database and tables. """
+        self.connection = self.connection or self._get_connection()
         db.setup_db(self.connection)
 
     def groc_dir_exists(self):
@@ -56,7 +55,6 @@ class Groc:
 
         # If ~/.groc exists and is a directory
         if not os.path.isdir(self.groc_dir):
-            print('creating .groc directory')
             os.mkdir(self.groc_dir)
 
         # Check ~/.groc/groc.db exists
@@ -68,6 +66,7 @@ class Groc:
 
     def clear_db(self):
         """ Delete all data from tables. """
+        self.connection = self.connection or self._get_connection()
         db.clear_db(self.connection)
 
     def select_by_id(self, ids):
@@ -80,6 +79,7 @@ class Groc:
         Returns:
             A SQLite cursor object.
         """
+        self.connection = self.connection or self._get_connection()
         return db.select_by_id(self.connection, ids)
 
     def select_purchase_ids(self, ids):
@@ -93,6 +93,7 @@ class Groc:
         Returns:
             A SQLite cursor object.
         """
+        self.connection = self.connection or self._get_connection()
         return db.select_purchase_ids(self.connection, ids)
 
     def breakdown(self, month, year):
@@ -110,6 +111,7 @@ class Groc:
         Returns:
             A SQLite cursor object.
         """
+        self.connection = self.connection or self._get_connection()
         return db.select_count_total_per_month(
             self.connection, month, year)
 
@@ -120,6 +122,7 @@ class Groc:
         Returns:
             int: total number of purchases.
         """
+        self.connection = self.connection or self._get_connection()
         cur = db.select_purchase_count(self.connection)
         # indexing with SQLite Row
         return cur.fetchone()['purchase_count']
@@ -131,6 +134,7 @@ class Groc:
         Args:
             ids (list/tuple): purchase ids.
         """
+        self.connection = self.connection or self._get_connection()
         db.delete_from_db(self.connection, ids)
 
     def list_purchases_date(self, month, year):
@@ -144,6 +148,7 @@ class Groc:
         Returns:
             A SQLite cursor object.
         """
+        self.connection = self.connection or self._get_connection()
         return db.get_purchases_date(self.connection, month, year)
 
     def list_purchases_limit(self, limit=50):
@@ -156,6 +161,7 @@ class Groc:
         Returns:
             A SQLite cursor object.
         """
+        self.connection = self.connection or self._get_connection()
         return db.get_purchases_limit(self.connection, limit)
 
     def list_purchases_date_limit(self, month, year, limit=50):
@@ -170,6 +176,7 @@ class Groc:
         Returns:
             A SQLite cursor object.
         """
+        self.connection = self.connection or self._get_connection()
         return db.get_purchases_date_limit(self.connection, month, year, limit)
 
     def add_purchase_manual(self, row, ignore_duplicate):
@@ -190,6 +197,7 @@ class Groc:
             exceptions.DuplicateRow: if purchase is duplicate.
             exceptions.DatabaseInsertError: if data invalid.
         """
+        self.connection = self.connection or self._get_connection()
         return db.validate_insert_row(self.connection,
                                       row, ignore_duplicate)
 
@@ -223,5 +231,6 @@ class Groc:
         else:
             raise Exception(f'{path} could not be found!')
 
+        self.connection = self.connection or self._get_connection()
         return db.insert_from_csv_dict(self.connection,
                                        csv_files, ignore_duplicate)

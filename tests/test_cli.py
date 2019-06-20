@@ -21,7 +21,7 @@ def test_init_groc_dir_exists(groc_init, groc_dir_exists, groc_connection,
     result = runner.invoke(groc_cli, ['init', '--verbose'])
     assert result.exit_code == 0
     assert result.output == ('Groc directory exists\n'
-                             'Attempting to create database...\n')
+                             'Welcome to groc! You\'re all set up!\n')
 
 
 @mock.patch('groc.cli.Groc._get_db_url')
@@ -34,8 +34,8 @@ def test_init(groc_init, groc_dir_exists, groc_connection, groc_db_url):
 
     result = runner.invoke(groc_cli, ['init', '--verbose'])
     assert result.exit_code == 0
-    assert result.output == ('Creating groc directory\n'
-                             'Attempting to create database...\n')
+    assert result.output == ('Attempting to create groc directory and db\n'
+                             'Welcome to groc! You\'re all set up!\n')
 
 
 @mock.patch('groc.cli.Groc._get_db_url')

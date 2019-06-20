@@ -85,9 +85,9 @@ def init(verbose):
         if g.groc_dir_exists():
             click.echo('Groc directory exists')
         else:
-            click.echo('Creating groc directory')
-        click.echo('Attempting to create database...')
+            click.echo('Attempting to create groc directory and db')
     g.init_groc()
+    click.secho('Welcome to groc! You\'re all set up!', fg='green')
 
 
 @groc_entrypoint.command('reset', short_help='Reset database')
@@ -431,6 +431,5 @@ def safe_entry_point():
     try:
         groc_entrypoint()
     except Exception as e:
-        raise e
         # Echo the exception message
-        # click.secho(str(e), fg='red')
+        click.secho(str(e), fg='red')
