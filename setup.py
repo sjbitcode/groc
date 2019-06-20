@@ -7,12 +7,14 @@ HERE = pathlib.Path(__file__).parent
 
 # The text of the README file
 README = (HERE / "README.md").read_text()
+version_path = (HERE / "groc" / "VERSION.py")
+VERSION = version_path.read_text().split('=')[1].strip().replace("'", '')
 
 
 # This call to setup() does all the work
 setup(
     name="groc",
-    version="0.0.1",
+    version=VERSION,
     description="Streamline your purchase history",
     long_description=README,
     long_description_content_type="text/markdown",

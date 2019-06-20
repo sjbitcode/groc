@@ -5,6 +5,7 @@ import click
 from prettytable import from_db_cursor
 
 from .models import Groc
+from .version import VERSION
 
 
 class MutuallyExclusiveOption(click.Option):
@@ -56,7 +57,7 @@ class MutuallyExclusiveOption(click.Option):
 
 # Click CLI
 @click.group()
-@click.version_option()
+@click.version_option(version=VERSION, prog_name='groc')
 @click.pass_context
 def groc_entrypoint(ctx):
     """
@@ -430,5 +431,6 @@ def safe_entry_point():
     try:
         groc_entrypoint()
     except Exception as e:
+        raise e
         # Echo the exception message
-        click.secho(str(e), fg='red')
+        # click.secho(str(e), fg='red')

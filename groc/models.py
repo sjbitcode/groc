@@ -24,6 +24,7 @@ class Groc:
         Raises:
             exceptions.DatabaseError: Any error connecting to db
         """
+        print(f'GROC DIR EXISTS ---> {self.groc_dir_exists()}')
         try:
             return db.create_connection(self.db_url)
         except (sqlite3.OperationalError, sqlite3.DatabaseError):
